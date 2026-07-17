@@ -1,0 +1,15 @@
+.git
+.github
+.svelte-kit
+.vercel
+build
+coverage
+node_modules
+project-notes
+.env
+.env.*
+.secrets
+secrets
+*.pem
+*.key
+*.log

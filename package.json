@@ -1,0 +1,59 @@
+{
+  "name": "liftoff-attendance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.5.1",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "11.5.1"
+  },
+  "scripts": {
+    "dev": "vite dev --host",
+    "build": "pnpm build:web && pnpm build:worker",
+    "build:web": "vite build",
+    "build:worker": "vite build --config vite.worker.config.ts",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "google:sheets:inventory": "node --env-file-if-exists=.env scripts/inventory-google-sheets.mjs",
+    "google:sheets:finalize-mapping": "node --env-file-if-exists=.env scripts/finalize-google-sheets-mapping.mjs",
+    "google:sheets:test-canary": "node --env-file-if-exists=.env scripts/test-google-sheets-canary.mjs",
+    "google:sheets:verify-readonly": "node --env-file-if-exists=.env scripts/verify-google-sheets-readonly.mjs",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "verify": "pnpm format:check && pnpm check && pnpm test && pnpm build",
+    "google:sheets:validate-identifiers": "node --env-file-if-exists=.env scripts/validate-google-sheets-identifiers.mjs",
+    "google:sheets:build-session-catalog": "node --env-file-if-exists=.env scripts/build-google-sheets-session-catalog.mjs",
+    "dev:seed": "node scripts/seed-module-2-local.mjs",
+    "worker": "node worker-build/worker.js"
+  },
+  "dependencies": {
+    "@googleapis/sheets": "13.0.2",
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "google-auth-library": "10.9.0",
+    "pg": "8.22.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "5.5.7",
+    "@sveltejs/adapter-vercel": "6.3.4",
+    "@sveltejs/kit": "2.69.3",
+    "@sveltejs/vite-plugin-svelte": "7.2.0",
+    "@types/node": "24.13.3",
+    "@types/pg": "8.20.0",
+    "dotenv": "17.4.2",
+    "prettier": "3.9.5",
+    "prettier-plugin-svelte": "4.1.1",
+    "prisma": "7.8.0",
+    "svelte": "5.56.5",
+    "svelte-check": "4.7.2",
+    "typescript": "6.0.3",
+    "vite": "8.1.4",
+    "vitest": "4.1.10"
+  }
+}

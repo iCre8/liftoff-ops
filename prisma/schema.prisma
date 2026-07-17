@@ -1,0 +1,583 @@
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AppRole {
+  LEARNER
+  ADMIN
+  FACILITATOR
+  INSTRUCTOR_TA
+  OUTREACH_SUPPORT
+  READ_ONLY
+}
+
+enum SupportItemStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum SyncOperationStatus {
+  PENDING
+  COMPLETED
+  HUMAN_REVIEW
+}
+
+enum AutomationMode {
+  DISABLED
+  DRY_RUN
+  ACTIVE
+}
+
+enum AutomationJobType {
+  PRE_TRIGGER_RECONCILIATION
+  LATE_EVALUATION
+  NO_CALL_NO_SHOW_EVALUATION
+  SHEET_RECONCILIATION
+  EXIT_REMINDER
+  INCOMPLETE_DAY_EVALUATION
+  UNCLAIMED_REMINDER
+  BIWEEKLY_REPORT
+  RETENTION_REVIEW
+}
+
+enum AutomationJobStatus {
+  PENDING
+  CLAIMED
+  COMPLETED
+  FAILED
+  HUMAN_REVIEW
+  SUPPRESSED
+}
+
+enum TemplateStatus {
+  DRAFT
+  APPROVED
+  RETIRED
+}
+
+enum AccommodationCategory {
+  SCHEDULE_TIMING
+  ATTENDANCE_CHECK_IN_METHOD
+  COMMUNICATION
+  ACCESSIBILITY_TECHNOLOGY
+  TEMPORARY_PERSONAL_CIRCUMSTANCE
+  OTHER
+}
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AttendanceState {
+  PENDING
+  ON_TIME
+  LATE
+  NO_CALL_NO_SHOW
+  EXCUSED
+  ACCOMMODATED
+  INCOMPLETE_DAY
+  CORRECTED
+}
+
+enum SubmissionType {
+  GOALS_CHECK_IN
+  EXIT_TICKET
+}
+
+enum IncidentType {
+  LATE
+  NO_CALL_NO_SHOW
+  INCOMPLETE_DAY
+  SYNC_CONFLICT
+}
+
+enum IncidentStatus {
+  OPEN
+  CLAIMED
+  RESOLVED
+  ESCALATED
+}
+
+enum OutreachChannel {
+  SLACK
+  EMAIL
+  HUMAN_CALL
+}
+
+enum OutreachStatus {
+  PENDING
+  ACCEPTED
+  DELIVERED
+  FAILED
+  CLAIMED
+  CLOSED
+}
+
+enum AccommodationStatus {
+  REQUESTED
+  TEMPORARILY_PAUSED
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+model Cohort {
+  id                   String                @id @default(cuid())
+  name                 String
+  timezone             String                @default("America/New_York")
+  startsOn             DateTime              @db.Date
+  endsOn               DateTime              @db.Date
+  archivedAt           DateTime?
+  automationMode       AutomationMode        @default(DISABLED)
+  modeChangedAt        DateTime?
+  modeChangedBy        String?
+  activatedAt          DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  learners             Learner[]
+  sessions             ProgramSession[]
+  messageTemplates     MessageTemplate[]
+  automationPauses     AutomationPause[]
+  roleAssignments      RoleAssignment[]
+  automationJobs       AutomationJob[]
+  blackoutDates        BlackoutDate[]
+  dryRunDays           DryRunDay[]
+  baselineMeasurements BaselineMeasurement[]
+}
+
+model Account {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  googleSubject  String?          @unique
+  displayName    String?
+  status         AccountStatus    @default(ACTIVE)
+  lastSignedInAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  roles          RoleAssignment[]
+  authSessions   AuthSession[]
+  learner        Learner?
+  auditEvents    AuditEvent[]
+}
+
+model RoleAssignment {
+  id        String   @id @default(cuid())
+  accountId String
+  cohortId  String?
+  role      AppRole
+  createdAt DateTime @default(now())
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  cohort    Cohort?  @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+
+  @@unique([accountId, cohortId, role])
+  @@index([cohortId, role])
+}
+
+model AuthSession {
+  id        String    @id @default(cuid())
+  accountId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, expiresAt])
+}
+
+model Learner {
+  id                     String             @id @default(cuid())
+  accountId              String?            @unique
+  cohortId               String
+  externalId             String
+  preferredChannel       OutreachChannel?
+  slackMemberId          String?            @unique
+  slackMappingVerifiedAt DateTime?
+  slackMappingVerifiedBy String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  account                Account?           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  cohort                 Cohort             @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  submissions            Submission[]
+  attendanceRecords      AttendanceRecord[]
+  incidents              Incident[]
+  accommodations         Accommodation[]
+  individualPauses       AutomationPause[]
+  supportItems           SupportItem[]
+  automationJobs         AutomationJob[]
+
+  @@unique([cohortId, externalId])
+  @@index([cohortId])
+}
+
+model ProgramSession {
+  id                   String             @id @default(cuid())
+  cohortId             String
+  externalId           String
+  sessionDate          DateTime           @db.Date
+  checkInReleasedAt    DateTime
+  exitTicketReleasedAt DateTime
+  programDayEndsAt     DateTime
+  cancelledAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  cohort               Cohort             @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  submissions          Submission[]
+  attendanceRecords    AttendanceRecord[]
+  incidents            Incident[]
+  automationJobs       AutomationJob[]
+
+  @@unique([cohortId, externalId])
+  @@unique([cohortId, sessionDate])
+}
+
+model Submission {
+  id             String                 @id @default(cuid())
+  learnerId      String
+  sessionId      String
+  type           SubmissionType
+  submittedAt    DateTime
+  content        Json
+  source         String
+  sourceId       String
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  learner        Learner                @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  session        ProgramSession         @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  revisions      SubmissionRevision[]
+  syncOperations PendingSyncOperation[]
+
+  @@unique([learnerId, sessionId, type])
+  @@unique([source, sourceId])
+  @@index([sessionId, type])
+}
+
+model SubmissionRevision {
+  id           String     @id @default(cuid())
+  submissionId String
+  revision     Int
+  content      Json
+  submittedAt  DateTime
+  actorId      String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+
+  @@unique([submissionId, revision])
+  @@index([submissionId, submittedAt])
+}
+
+model PendingSyncOperation {
+  id             String              @id @default(cuid())
+  submissionId   String
+  idempotencyKey String              @unique
+  status         SyncOperationStatus @default(PENDING)
+  createdAt      DateTime            @default(now())
+  completedAt    DateTime?
+  submission     Submission          @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+}
+
+model AttendanceRecord {
+  id               String          @id @default(cuid())
+  learnerId        String
+  sessionId        String
+  state            AttendanceState
+  countsAsAttended Boolean
+  countsAsEligible Boolean
+  sourceVersion    String?
+  correctedAt      DateTime?
+  correctionReason String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  learner          Learner         @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  session          ProgramSession  @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@unique([learnerId, sessionId])
+  @@index([sessionId, state])
+}
+
+model Incident {
+  id               String            @id @default(cuid())
+  idempotencyKey   String            @unique
+  learnerId        String
+  sessionId        String
+  type             IncidentType
+  status           IncidentStatus    @default(OPEN)
+  detectedAt       DateTime
+  claimedAt        DateTime?
+  closedAt         DateTime?
+  closureReason    String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  learner          Learner           @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  session          ProgramSession    @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  events           IncidentEvent[]
+  outreach         OutreachAttempt[]
+  syncAttempts     SyncAttempt[]
+  unresolvedReview UnresolvedReview?
+
+  @@index([sessionId, status])
+  @@index([learnerId, detectedAt])
+}
+
+model IncidentEvent {
+  id         String   @id @default(cuid())
+  incidentId String
+  eventType  String
+  actorType  String
+  actorId    String?
+  payload    Json
+  occurredAt DateTime @default(now())
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, occurredAt])
+}
+
+model MessageTemplate {
+  id         String            @id @default(cuid())
+  cohortId   String
+  key        String
+  version    Int
+  content    String
+  status     TemplateStatus    @default(DRAFT)
+  approvedAt DateTime?
+  approvedBy String?
+  createdAt  DateTime          @default(now())
+  cohort     Cohort            @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  outreach   OutreachAttempt[]
+
+  @@unique([cohortId, key, version])
+}
+
+model OutreachAttempt {
+  id                String           @id @default(cuid())
+  idempotencyKey    String           @unique
+  incidentId        String
+  templateId        String?
+  channel           OutreachChannel
+  status            OutreachStatus   @default(PENDING)
+  recipientRef      String
+  providerMessageId String?
+  attemptNumber     Int              @default(1)
+  executionMode     AutomationMode   @default(DRY_RUN)
+  nextAttemptAt     DateTime?
+  errorCode         String?
+  acceptedAt        DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  incident          Incident         @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  template          MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  providerEvents    ProviderEvent[]
+
+  @@index([incidentId, channel])
+  @@index([status, nextAttemptAt])
+}
+
+model ProviderEvent {
+  id                String           @id @default(cuid())
+  provider          String
+  providerEventId   String
+  outreachAttemptId String?
+  eventType         String
+  occurredAt        DateTime
+  receivedAt        DateTime         @default(now())
+  outreachAttempt   OutreachAttempt? @relation(fields: [outreachAttemptId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([outreachAttemptId, occurredAt])
+}
+
+model AutomationJob {
+  id             String              @id @default(cuid())
+  idempotencyKey String              @unique
+  cohortId       String
+  sessionId      String?
+  learnerId      String?
+  type           AutomationJobType
+  status         AutomationJobStatus @default(PENDING)
+  runAt          DateTime
+  attemptNumber  Int                 @default(0)
+  maxAttempts    Int                 @default(3)
+  claimedAt      DateTime?
+  claimedBy      String?
+  completedAt    DateTime?
+  nextAttemptAt  DateTime?
+  errorCode      String?
+  payload        Json
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  cohort         Cohort              @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  session        ProgramSession?     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  learner        Learner?            @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+
+  @@index([status, runAt, nextAttemptAt])
+  @@index([cohortId, type, runAt])
+  @@index([learnerId, type, status])
+}
+
+model BlackoutDate {
+  id        String    @id @default(cuid())
+  cohortId  String
+  date      DateTime  @db.Date
+  reason    String
+  createdBy String
+  createdAt DateTime  @default(now())
+  removedBy String?
+  removedAt DateTime?
+  cohort    Cohort    @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+
+  @@unique([cohortId, date])
+  @@index([cohortId, removedAt, date])
+}
+
+model DryRunDay {
+  id                 String    @id @default(cuid())
+  cohortId           String
+  date               DateTime  @db.Date
+  completedAt        DateTime?
+  reviewedAt         DateTime?
+  reviewedBy         String?
+  exceptionReason    String?
+  duplicateCount     Int       @default(0)
+  unresolvedMappings Int       @default(0)
+  cohort             Cohort    @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+
+  @@unique([cohortId, date])
+  @@index([cohortId, completedAt, reviewedAt])
+}
+
+model UnresolvedReview {
+  id             String    @id @default(cuid())
+  incidentId     String    @unique
+  ownerAccountId String?
+  status         String
+  actionTaken    String?
+  disposition    String?
+  followUpDate   DateTime? @db.Date
+  closureNote    String?
+  dueAt          DateTime
+  annotatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  incident       Incident  @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+
+  @@index([status, dueAt])
+  @@index([ownerAccountId, status])
+}
+
+model BaselineMeasurement {
+  id                          String   @id @default(cuid())
+  cohortId                    String
+  measurementDate             DateTime @db.Date
+  recordedBy                  String
+  outreachCoordinationMinutes Int
+  incidentsHandled            Int
+  unresolvedItems             Int
+  createdAt                   DateTime @default(now())
+  cohort                      Cohort   @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+
+  @@unique([cohortId, measurementDate, recordedBy])
+  @@index([cohortId, measurementDate])
+}
+
+model SyncAttempt {
+  id                    String    @id @default(cuid())
+  incidentId            String?
+  idempotencyKey        String    @unique
+  system                String
+  direction             String
+  attemptNumber         Int
+  expectedSourceVersion String?
+  observedSourceVersion String?
+  status                String
+  errorCode             String?
+  occurredAt            DateTime  @default(now())
+  incident              Incident? @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+
+  @@index([system, status, occurredAt])
+}
+
+model Accommodation {
+  id                  String                @id @default(cuid())
+  learnerId           String
+  category            AccommodationCategory
+  requestedAdjustment String
+  expectedBenefit     String
+  preferredFollowUp   String
+  reviewNote          String?
+  status              AccommodationStatus   @default(REQUESTED)
+  requestedAt         DateTime              @default(now())
+  startsAt            DateTime?
+  endsAt              DateTime?
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  ruleOverrides       Json?
+  learner             Learner               @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+
+  @@index([learnerId, status])
+}
+
+model AutomationPause {
+  id         String    @id @default(cuid())
+  cohortId   String
+  learnerId  String?
+  startsAt   DateTime
+  endsAt     DateTime?
+  reasonCode String
+  approvedBy String
+  createdAt  DateTime  @default(now())
+  cohort     Cohort    @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  learner    Learner?  @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+
+  @@index([cohortId, startsAt, endsAt])
+  @@index([learnerId, startsAt, endsAt])
+}
+
+model SupportItem {
+  id             String            @id @default(cuid())
+  idempotencyKey String            @unique
+  learnerId      String
+  submissionId   String
+  summary        String
+  status         SupportItemStatus @default(OPEN)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  learner        Learner           @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+
+  @@index([learnerId, status, createdAt])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  accountId  String?
+  eventType  String
+  entityType String
+  entityId   String
+  payload    Json
+  occurredAt DateTime @default(now())
+  account    Account? @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId, occurredAt])
+  @@index([accountId, occurredAt])
+}
+
+model ArchivedIncident {
+  id               String   @id @default(cuid())
+  originalId       String   @unique
+  cohortId         String
+  snapshot         Json
+  archivedAt       DateTime @default(now())
+  deletionReviewAt DateTime
+  deletionHold     Boolean  @default(false)
+
+  @@index([cohortId, deletionReviewAt])
+}

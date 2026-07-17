@@ -1,0 +1,13 @@
+{
+  "dataStartRow": 7,
+  "dataEndRow": 250,
+  "learnerExternalIdColumn": "A",
+  "sessions": {
+    "SANITIZED_SESSION_ID": {
+      "checkInColumn": "F",
+      "exitTicketColumn": "G",
+      "excusedColumn": "H",
+      "outcomeColumn": "I"
+    }
+  }
+}

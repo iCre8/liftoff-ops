@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [uat, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/validation
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@9fd676a19091d4595eefd76e4bd31c97133911f1 # v4.2.0
+        with:
+          version: 11.5.1
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24.14.1
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify application
+        run: pnpm verify
+
+      - name: Validate database schema
+        run: pnpm db:validate
+
+      - name: Validate Compose profiles and secrets
+        run: docker compose --profile app config
+
+      - name: Build immutable application input
+        run: docker build --tag liftoff-attendance:${{ github.sha }} .
+
+      - name: Evaluate pinned Nix flake
+        run: >-
+          docker run --rm
+          -v "${{ github.workspace }}:/work"
+          -w /work
+          nixos/nix:2.34.7@sha256:bf1d938835ab96312f098fa6c2e9cab367728e0aad0646ee3e02a787c80d8fb8
+          nix --extra-experimental-features "nix-command flakes" flake check --no-build
