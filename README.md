@@ -304,4 +304,4 @@ Exit criterion: Cohort 3 owners approve the UAT evidence and production go/no-go
 - The operational dashboard is currently a readiness view, not a live incident dashboard.
 - Provider adapters remain disabled until their milestone exit criteria are satisfied.
 
-See the [Phase 2 backlog](project-notes/phase-2.md), [annotated design decisions](project-notes/design-decisions.md), and [project configuration ledger](project-notes/project_config.md) for the authoritative requirements, decision history, and verified configuration guidance.
+See the [Phase 2 backlog](project-notes/phase-2.md), [annotated design decisions](project-notes/design-decisions.md), and [project configuration ledger](project-notes/project_config.md) for the authoritative requirements, decision history, and verified configuration guidance. The [activation gates walkthrough](ACTIVATION-GATES.md) documents the ordered external steps, verification commands, and rationale required to move from local-complete to Cohort 3 production.
