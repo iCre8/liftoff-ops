@@ -24,6 +24,17 @@ Note the holiday: the cohort nominally starts September 7, but that is Labor Day
 
 The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_run` mode**. It rehearses the full stack and produces staff-review evidence, but the five formal dry-run days must run against the real Cohort 3 workbook once the cohort exists.
 
+## Three things worth your attention
+
+1. **September 7 is Labor Day.** The cohort's nominal start date is a preloaded federal-holiday blackout. The first active program day is Tuesday September 8, so the five dry-run days land September 8–14 and activation lands ~September 15 unless the admin-exception path (minimum one complete day) is recorded.
+2. **The July 24 pilot should run the worker locally.** Web app on Vercel UAT for staff visibility, worker on the development workstation in `dry_run` mode with local ADC and the sanitized workbook. Dry-run performs no external effects either way, so this defers the production credential decision without weakening the pilot. Only Gates 1–3 plus the Vercel half of Gate 4 truly block Friday.
+3. **One open decision — production Google Sheets credentials for the worker** (detailed in Gate 4). ADC impersonation is development-only and the DigitalOcean droplet has no Workload Identity Federation path. Recommended: a dedicated service account with a JSON key scoped to only the Sheets API and only the Cohort 3 workbook, stored as an owner-only `0600` mounted file with recorded quarterly rotation, as a documented exception to the no-key rule. Decide before September 8; it does not block the pilot.
+
+## Housekeeping log
+
+- 2026-07-18: The stray GitHub SSH connectivity note was removed from `project-notes/design-decisions.md`; the command now lives in Gate 4 where it is actually used.
+- 2026-07-18: The unrelated "Deterministic Agentic Fleet" infrastructure plan (`dev-config.md` and its diagram) moved out of `project-notes/` to `~/engineering-projects/agentic-fleet-plan/`. It is a separate initiative and is no longer part of this repository.
+
 ## Gate status checklist
 
 - [ ] Gate 1 — Column D learner identities corrected and validated
