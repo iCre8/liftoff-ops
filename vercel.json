@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "sveltekit",
+  "buildCommand": "pnpm db:generate && pnpm build:web",
+  "git": {
+    "deploymentEnabled": {
+      "preview": false,
+      "production": false
+    }
+  }
+}

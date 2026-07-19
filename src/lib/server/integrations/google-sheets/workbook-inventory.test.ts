@@ -11,6 +11,34 @@ const metadata = {
   columnCount: 20,
   protectedRangeCount: 0,
 };
+async function inventoryFromRows(rows: readonly (readonly unknown[])[]) {
+  const batchGet = vi.fn().mockResolvedValue({ data: { valueRanges: [{ values: rows }] } });
+  const get = vi.fn().mockResolvedValue({
+    data: {
+      sheets: [
+        {
+          properties: {
+            sheetId: metadata.worksheetId,
+            title: metadata.worksheetTitle,
+            index: metadata.sheetIndex,
+            sheetType: 'GRID',
+            gridProperties: {
+              rowCount: metadata.rowCount,
+              columnCount: metadata.columnCount,
+            },
+          },
+        },
+      ],
+    },
+  });
+  const api = { spreadsheets: { get, values: { batchGet } } } as unknown as sheets_v4.Sheets;
+  return inventoryAttendanceWorkbook({
+    api,
+    spreadsheetId: 'sanitized-copy',
+    worksheetId: metadata.worksheetId,
+    generatedAt: '2026-07-19T00:00:00.000Z',
+  });
+}
 
 describe('workbook inventory header analysis', () => {
   it('detects an attendance candidate and adjacent check-in/check-out pairs', () => {
@@ -45,6 +73,48 @@ describe('workbook inventory header analysis', () => {
       },
     ]);
     expect(sheet.recognizedHeaders).toContainEqual({ kind: 'learner_id', row: 6, column: 'A' });
+  });
+
+  it('maps learner identities from the unique email header at D10', async () => {
+    const rows = Array.from({ length: 9 }, () => [] as string[]);
+    rows[8] = [
+      'Student Number',
+      'Name',
+      'PLP',
+      'Email',
+      'Attendance Notes',
+      'Check in Friday',
+      'Check out Friday',
+      'Excused Status',
+      'Incident Outcome',
+    ];
+
+    const report = await inventoryFromRows(rows);
+
+    expect(report.mappingDraft).toMatchObject({
+      dataStartRow: 10,
+      dataEndRow: null,
+      learnerExternalIdColumn: 'D',
+    });
+  });
+
+  it.each([
+    ['missing', ['Student Number', 'Name', 'PLP', '', 'Attendance Notes']],
+    ['ambiguous', ['Student Number', 'Name', 'Email', 'Email', 'Attendance Notes']],
+  ])('does not create a mapping draft when the email header is %s', async (_case, headers) => {
+    const rows = Array.from({ length: 9 }, () => [] as string[]);
+    rows[8] = [
+      ...headers,
+      'Check in Friday',
+      'Check out Friday',
+      'Excused Status',
+      'Incident Outcome',
+    ];
+
+    const report = await inventoryFromRows(rows);
+
+    expect(report.sheets[0]?.attendanceCandidate).toBe(true);
+    expect(report.mappingDraft).toBeNull();
   });
 
   it('does not retain unrecognized or learner-like raw values', () => {

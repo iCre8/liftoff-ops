@@ -49,6 +49,35 @@ export const attendanceSheetMappingSchema = z
 
 export type AttendanceSheetMapping = z.infer<typeof attendanceSheetMappingSchema>;
 
+export interface ContiguousLearnerRange {
+  dataStartRow: number;
+  dataEndRow: number;
+  learnerExternalIdColumn: string;
+}
+
+export function deriveContiguousLearnerRange(input: {
+  dataStartRow: number;
+  learnerExternalIdColumn: string;
+  identifiers: readonly unknown[];
+}): ContiguousLearnerRange {
+  const populated = input.identifiers.map((value) => String(value ?? '').trim().length > 0);
+  const firstPopulatedIndex = populated.indexOf(true);
+  const lastPopulatedIndex = populated.lastIndexOf(true);
+
+  if (firstPopulatedIndex < 0) {
+    throw new Error('Stable learner identifier rows are empty or non-contiguous');
+  }
+  if (!populated.slice(firstPopulatedIndex, lastPopulatedIndex + 1).every(Boolean)) {
+    throw new Error('Stable learner identifier rows are empty or non-contiguous');
+  }
+
+  return {
+    dataStartRow: input.dataStartRow + firstPopulatedIndex,
+    dataEndRow: input.dataStartRow + lastPopulatedIndex,
+    learnerExternalIdColumn: column.parse(input.learnerExternalIdColumn),
+  };
+}
+
 export function parseAttendanceSheetMapping(input: unknown): AttendanceSheetMapping {
   return attendanceSheetMappingSchema.parse(input);
 }

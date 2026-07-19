@@ -72,13 +72,16 @@ services:
     command: ['node', 'worker-build/worker.js']
     environment:
       DATABASE_URL_FILE: /run/secrets/database_url
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
+      GOOGLE_SHEETS_MAPPING_FILE: /run/secrets/google_sheets_mapping
+      GOOGLE_SHEETS_SPREADSHEET_ID: ${GOOGLE_SHEETS_SPREADSHEET_ID:-}
+      GOOGLE_SHEETS_WORKSHEET_ID: ${GOOGLE_SHEETS_WORKSHEET_ID:-}
       HEARTBEAT_FILE: /tmp/liftoff-worker-heartbeat
       PHASE3_EXTERNAL_EFFECTS: 'false'
     secrets:
       - database_url
-    depends_on:
-      db:
-        condition: service_healthy
+      - google_service_account
+      - google_sheets_mapping
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -101,6 +104,10 @@ services:
 secrets:
   database_url:
     file: ${DATABASE_URL_FILE:-/dev/null}
+  google_service_account:
+    file: ${GOOGLE_SERVICE_ACCOUNT_FILE:-/dev/null}
+  google_sheets_mapping:
+    file: ${GOOGLE_SHEETS_MAPPING_FILE:-/dev/null}
   postgres_password:
     file: ${POSTGRES_PASSWORD_FILE:-/dev/null}
 
