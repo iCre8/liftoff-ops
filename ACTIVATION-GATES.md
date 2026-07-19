@@ -40,6 +40,8 @@ The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_
 - 2026-07-18: A Neon database password was inadvertently printed in cleartext during a verification command in an assistant session. Flagged for rotation in the Neon console; treat the `neondb_owner` credential on the dev/UAT branch as compromised until rotated.
 - 2026-07-19: Corrected the local worksheet target from the 34-row expanded development tab to the unique 23-row Cohort 3 tab shown by the owner. Gate 1 validation now derives the email boundary from the private inventory independently of full session/outcome mapping.
 - 2026-07-19: Configured owner-only pooled runtime and direct migration secrets for dev/UAT and production with full TLS verification. Applied all three committed migrations to the separately verified production database and cleared Gate 3.
+- 2026-07-19: Cleared the GitHub/Vercel half of Gate 4. Clean CI now generates Prisma Client before analysis, the pinned Nix container trusts only its read-only mounted workspace, Vercel Git deployments are disabled for every branch, and the GitHub-gated protected UAT deployment returns a healthy response.
+- 2026-07-19: Sharing the configured workbook with the owner's personal Google account did not grant the dedicated UAT service account access. The bounded service-account check still receives access denied; the exact service-account address remains the required Viewer principal.
 
 ## Gate status checklist
 
@@ -156,13 +158,13 @@ Identity validation derives its boundary from the owner-only inventory file and 
    ```
 
 2. **Complete:** the private GitHub remote and distinct `uat` branch exist. The local release-candidate branch is prepared from `main`; remote push and PR into `uat` remain explicit approval boundaries.
-3. **Pending:** create GitHub **preview / uat / production** environments. UAT is initially owner-triggered; Production must gain an independent reviewer after the repository moves to the organization.
-4. **In progress:** the personal-scope Vercel project exists, is connected to the private repository, and has Git auto-deployments disabled. The pinned GitHub UAT workflow verifies, builds a prebuilt Vercel artifact, and deploys only through the `uat` environment. Preview has the dev/UAT pooled database secret and `America/New_York`; OAuth variables remain deliberately absent until the first deployment supplies the redirect URL.
-5. **Pending first deployment:** verify `/health`, add the generated callback URI to Google OAuth, configure the remaining UAT OAuth variables, complete an organization sign-in, and enable Vercel deployment protection.
+3. **Complete for the current personal repository:** GitHub **preview / uat / production** environments exist. UAT is branch-restricted to `uat`, Production is branch-restricted to `main`, and the Vercel token/project identifiers exist only as encrypted UAT environment secrets. Production remains intentionally secret-free and must gain an independent reviewer after the repository moves to the organization.
+4. **Complete:** the personal-scope Vercel project is connected to the private repository, and `git.deploymentEnabled: false` disables automatic Vercel deployments for every branch. The pinned GitHub UAT workflow generates Prisma Client, verifies the clean checkout, builds a prebuilt Vercel artifact, and deploys only through the `uat` environment. Preview contains only the dev/UAT pooled database secret and `America/New_York`.
+5. **Partially complete:** the first and subsequent GitHub-gated UAT deployments succeeded, Vercel deployment protection is active, and an authenticated `/health` request returned `status=ok` with integrations inactive. Still pending: add the generated callback URI to the corporate Google OAuth client, configure the four UAT OAuth/admin variables, complete an organization sign-in, and verify the authenticated operational workspace.
 
 **Steps — worker.**
 
-1. **Approved, pending DigitalOcean CLI authentication:** provision an Ubuntu 24.04 LTS Basic droplet in NYC3 with two shared vCPUs, 2 GiB RAM, monitoring, no UAT backups, and the dedicated LiftOff SSH key. Enforce key-only SSH and use a non-root sudo operator account.
+1. **Approved, blocked on DigitalOcean CLI authentication:** provision an Ubuntu 24.04 LTS Basic droplet in NYC3 with two shared vCPUs, 2 GiB RAM, monitoring, no UAT backups, and the dedicated LiftOff SSH key. The saved CLI context has no usable access token, so no droplet has been created. Enforce key-only SSH and use a non-root sudo operator account.
 2. Copy nothing from the worktree except what `git clone` of the pinned release commit provides. Create owner-only secret files under `~/.config/liftoff/secrets/` (directory `0700`, files `0600`) for the dev/UAT pooled database URL, Google service-account JSON key, and private Sheet mapping. Store workbook/worksheet identifiers only in the owner-only deployment environment file.
 3. Start only the worker service; it must not start local PostgreSQL:
 
@@ -172,9 +174,9 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
    The profile mounts only external secrets/configuration, runs a read-only filesystem with a tmpfs heartbeat, and hard-locks `PHASE3_EXTERNAL_EFFECTS=false`. Startup rejects any other value and rejects partial Sheet configuration.
 
-**Google Sheets credential decision — approved for UAT.** A dedicated UAT service account and owner-only JSON key have been created. It will receive Viewer access only to the copied dev/UAT workbook; the connected Drive identity could not grant that permission because of a Workspace domain-policy boundary, so the workbook owner must complete the reader share before droplet deployment. The key must rotate quarterly. Production requires a separately scoped identity and approval.
+**Google Sheets credential decision — approved for UAT, access pending.** A dedicated UAT service account and owner-only JSON key have been created. It must receive Viewer access only to the copied dev/UAT workbook. Sharing the workbook with the owner's personal account did not grant the service account access; a repeated bounded read-only check still failed with access denied. The workbook owner must share the exact configured copy with the exact address stored in `~/.config/liftoff/uat_google_service_account.email` before droplet deployment. The key must rotate quarterly. Production requires a separately scoped identity and approval.
 
-**Verification.** Local evidence is complete: 69 tests, zero diagnostics, web and worker builds, Nix flake evaluation, Compose rendering, Vercel prebuild, immutable container build, and a temporary worker heartbeat against dev/UAT Neon all passed. Gate closure still requires deployed `/health`, a healthy droplet worker heartbeat, real organization sign-in, and authenticated rendering of the automation workspace controls, unresolved review, and reporting sections.
+**Verification.** Local and hosted web evidence is complete: 69 tests, zero diagnostics, web and worker builds, Nix flake evaluation, Compose rendering, immutable container build, clean GitHub CI, GitHub-gated Vercel prebuild/deploy, active deployment protection, and protected `/health` all passed. A temporary worker heartbeat against dev/UAT Neon also passed locally with external effects disabled. Gate closure still requires corporate OAuth sign-in, authenticated rendering of the automation workspace controls/unresolved review/reporting sections, service-account read access to the exact UAT workbook, authenticated DigitalOcean provisioning, and a healthy droplet worker heartbeat. Gate status confidence: **70%**.
 
 **Unblocks:** the Jul 24 UAT pilot and everything after it.
 
