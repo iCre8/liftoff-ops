@@ -143,6 +143,9 @@ The containerized application is available at `http://127.0.0.1:3000`, with its 
 
 Secrets must stay outside the worktree. Never commit them, place them in `.env.example`, pass them as Docker build arguments, or print them in logs.
 
+For a guided introduction, complete the
+[seven local external-secret management lessons](project-notes/local-secret-management-lessons.md).
+
 ## Validation commands
 
 | Command                                      | Purpose                                                     |
