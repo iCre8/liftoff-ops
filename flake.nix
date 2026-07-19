@@ -19,6 +19,8 @@
             corepack
             docker-client
             docker-compose
+            doctl
+            gh
             google-cloud-sdk
             postgresql_18
           ];

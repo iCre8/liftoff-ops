@@ -125,12 +125,12 @@ Copy this section for future verified configuration changes:
 
 ## Column D learner email contract and deferred synchronization
 
-- Date: 2026-07-15
-- Scope: the configured sanitized attendance worksheet and Module 2/3 boundary.
-- Decision: hidden column D stores normalized `@launchpadphilly.org` learner emails. Session/account synchronization fails closed unless every bounded learner row is populated and unique. Module 2 writes pending idempotent sync operations to Postgres only.
-- Verification: a bounded read-only count-only check scanned rows 9 through 34 and reported 26 returned values, 22 company-domain matches, 23 unique normalized values, and no logged raw identifiers.
-- Recovery: staff correct column D in the authoritative Sheet, then rerun `pnpm google:sheets:validate-identifiers`. Do not infer or fuzzy-match learner identities.
-- Constraints: activating or performing a Sheet write requires explicit authorization; this entry authorizes none.
+- Date: 2026-07-19
+- Scope: the configured Cohort 3 attendance worksheet, local UAT, and the Module 2/3 boundary.
+- Decision: hidden column D stores normalized `@launchpadphilly.org` learner emails. Count-only identity validation derives the contiguous learner boundary from the private inventory and remains independent of full session/outcome mapping. Session/account synchronization still fails closed unless every derived learner row is populated and unique.
+- Verification: the uniquely resolved 23-row worksheet has its email header at D8, a blank metadata row at D9, and 14 learner rows at D10:D23. Bounded read-only validation reported 14 returned, 14 company-domain, 14 unique, and 14 already normalized values. No raw learner value, worksheet title, or provider identifier was logged.
+- Recovery: after any worksheet-target or roster change, rerun `pnpm google:sheets:inventory` followed by `pnpm google:sheets:validate-identifiers`. Do not infer or fuzzy-match learner identities.
+- Constraints: full session/outcome mapping, live Sheet writes, external messages, and deployment remain separately authorized gates; this entry authorizes none.
 
 ## Google Workspace web authentication
 
@@ -157,10 +157,10 @@ Copy this section for future verified configuration changes:
 - Date: 2026-07-15
 - Scope: local durable scheduling and the future DigitalOcean Compose worker.
 - Decision: use a dedicated bundled TypeScript worker, not n8n, for authoritative attendance automation. The worker creates deterministic jobs, conditionally claims due work, recovers stale claims, sleeps until the next due job with a bounded fifteen-minute configuration refresh, and writes only a `0600` heartbeat under tmpfs.
-- Implementation: migration `20260715180000_phase_3_automation` is applied only to local PostgreSQL. `vite.worker.config.ts` emits `worker-build/worker.js`; the Compose `worker` profile mounts only the database secret, uses a read-only filesystem, and sets `PHASE3_EXTERNAL_EFFECTS=false`.
+- Implementation: migration `20260715180000_phase_3_automation` was initially applied only to local PostgreSQL and is now applied to dev/UAT and production under Gate 3. `vite.worker.config.ts` emits `worker-build/worker.js`; the Compose `worker` profile mounts external database, Google credential, and Sheet-mapping files, uses a read-only filesystem, and sets `PHASE3_EXTERNAL_EFFECTS=false`. Worker startup now rejects a missing/non-false external-effects lock and partial Sheet configuration.
 - Verification: the local worker created nine deterministic jobs for the current sanitized session, suppressed five due jobs while the cohort was disabled, retained four future jobs, and created the owner-only heartbeat. `pnpm verify` passed with 8 test files and 41 tests, both web and worker builds, and zero diagnostics. `docker compose --profile worker config` passed.
 - Recovery: set the cohort to `DISABLED`, stop the worker, inspect only bounded status/error metadata, and restart. Claims older than fifteen minutes return to pending. Do not manually delete audit or job rows.
-- Constraints: active provider execution, live Sheet writes, real messages, deployment, and production migration remain unauthorized and fail closed.
+- Constraints: active provider execution, live Sheet writes, real messages, and deployment remain unauthorized and fail closed.
 
 ## Phase 3 provider events and runtime image
 
@@ -180,3 +180,23 @@ Copy this section for future verified configuration changes:
 - Verification: 53 sanitized tests and zero Svelte/TypeScript diagnostics passed; web and worker production builds completed. An authenticated local automation-workspace smoke test returned HTTP 200 and rendered the controls, unresolved-review, and reporting sections.
 - Recovery: remove external integration configuration, set the cohort to `DISABLED`, and restart the worker. Missing configuration fails closed and active external effects remain disabled.
 - Constraints: identifier cleanup, organization OAuth, provider canaries, dry-run evidence collection, compliance approval, deployment, production migration, live Sheet writes, and real messages remain external activation gates.
+
+## Prisma file-mounted schema connections and Gate 3 status
+
+- Date: 2026-07-19
+- Scope: Prisma schema commands for local dev/UAT and production Neon environments.
+- Decision: schema commands prefer `DIRECT_DATABASE_URL_FILE`, then `DIRECT_DATABASE_URL`, and fall back to `DATABASE_URL_FILE` or `DATABASE_URL` only for validation and read-only status checks. Application runtime continues to use the pooled `DATABASE_URL` secret role.
+- Implementation: the shared secret loader now supports optional values with file-first precedence; `prisma.config.ts` uses it for both direct and fallback connection roles. `.env.example` documents `DIRECT_DATABASE_URL_FILE`. Production platforms must inject secrets through their environment-scoped secret manager or an owner-only mounted file rather than copying `.env.production` into an image or repository artifact.
+- Verification: 65 sanitized tests passed, including five secret-loader regression cases; `pnpm db:validate` passed. Secret-safe validation confirmed matching pooled/direct targets within each environment, separation between dev/UAT and production, `sslmode=verify-full`, required channel binding, and mode `0600` on all related files. After explicit authorization, `prisma migrate deploy` applied all three committed migrations to production without error. Independent direct-connection status checks found all three migrations applied and no pending migration in either environment. No provider identifier or connection value was recorded.
+- Recovery: remove `DIRECT_DATABASE_URL_FILE` to return schema commands to the direct environment variable, or remove both direct settings to use the pooled fallback for non-mutating validation only. Never run deployment through the pooled fallback when the direct migration connection is required.
+- Constraints: preserve the pooled runtime/direct schema-operation split and full TLS verification. Production platforms must use their environment-scoped secret manager or owner-only mounted files; never copy local secret files into an image, artifact, or repository commit. Any future migration requires fresh target confirmation, status review, and explicit authorization.
+
+## Gate 4 UAT deployment boundary
+
+- Date: 2026-07-19
+- Scope: private GitHub repository, Vercel Preview/UAT web, and DigitalOcean UAT worker.
+- Decision: deploy UAT before Production. Vercel Git deployments remain disabled; a GitHub `uat` environment workflow uses pinned Vercel CLI 56.3.2 to verify, build, and deploy a prebuilt artifact. The DigitalOcean worker uses Ubuntu 24.04 LTS in NYC3, a dedicated SSH identity, dev/UAT Neon, read-only access to the copied dev/UAT workbook, and an enforced external-effects lock. Production promotion and independent approval wait for the organization repository transfer.
+- Implementation: the personal Vercel project is linked to the private repository and Preview contains only the dev/UAT pooled database secret and timezone until OAuth callback configuration is possible. The Nix shell includes `doctl` from the locked nixpkgs input. Compose no longer gives the worker a local database dependency and mounts the database URL, Google credential, and Sheet mapping as external files. A dedicated UAT Google service account and owner-only key exist outside the worktree; Viewer sharing remains pending at the workbook-owner boundary.
+- Verification: `pnpm verify` passed with 15 test files and 69 tests, zero diagnostics, and successful web/worker builds. Nix evaluation, Compose rendering, Vercel Preview prebuild, and the immutable container build passed. The container connected to dev/UAT Neon with external effects disabled, wrote a non-empty heartbeat under tmpfs, and was removed. No external message or Sheet write occurred.
+- Recovery: disconnect the Vercel Git link or roll back to the previous deployment; set the cohort to `DISABLED`; stop the worker; remove droplet access and revoke/delete the UAT service-account key if compromised. Recreate the droplet from the pinned commit rather than repairing an unknown host state.
+- Constraints: Gate 4 remains in progress until the GitHub environments/secrets exist, the release candidate reaches `uat`, Vercel `/health` and organization OAuth succeed, the droplet worker heartbeat is healthy, and deployment protection is enabled. Never enable sanitized dev auth or set `NODE_ENV` manually on Vercel.

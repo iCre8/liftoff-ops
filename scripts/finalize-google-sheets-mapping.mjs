@@ -3,7 +3,10 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 import { createGoogleSheetsApiFromAdc } from '../src/lib/server/integrations/google-sheets/google-api-gateway.ts';
-import { parseAttendanceSheetMapping } from '../src/lib/server/integrations/google-sheets/mapping.ts';
+import {
+  deriveContiguousLearnerRange,
+  parseAttendanceSheetMapping,
+} from '../src/lib/server/integrations/google-sheets/mapping.ts';
 
 const EXPECTED_SESSION_GROUP_COUNT = 42;
 
@@ -84,19 +87,14 @@ try {
     dateTimeRenderOption: 'FORMATTED_STRING',
   });
   const identifiers = response.data.values?.[0] ?? [];
-  const populated = identifiers.map((value) => String(value ?? '').trim().length > 0);
-  const lastPopulatedIndex = populated.lastIndexOf(true);
-  if (lastPopulatedIndex < 0 || !populated.slice(0, lastPopulatedIndex + 1).every(Boolean)) {
-    throw new Error('Stable learner identifier rows are empty or non-contiguous');
-  }
-  if (populated.slice(lastPopulatedIndex + 1).some(Boolean)) {
-    throw new Error('Stable learner identifier rows are not bounded contiguously');
-  }
+  const learnerRange = deriveContiguousLearnerRange({
+    dataStartRow: draft.dataStartRow,
+    learnerExternalIdColumn: draft.learnerExternalIdColumn,
+    identifiers,
+  });
 
   const mapping = parseAttendanceSheetMapping({
-    dataStartRow: draft.dataStartRow,
-    dataEndRow: draft.dataStartRow + lastPopulatedIndex,
-    learnerExternalIdColumn: draft.learnerExternalIdColumn,
+    ...learnerRange,
     sessions: Object.fromEntries(
       groups.map((group, index) => [
         `session-${String(index + 1).padStart(3, '0')}`,

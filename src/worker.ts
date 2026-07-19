@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 
+import { validateWorkerConfiguration } from './lib/server/config/worker';
 import { getDatabase } from './lib/server/db';
 import { ConfiguredAttendanceSheetAdapter } from './lib/server/integrations/google-sheets/adapter';
 import { createGoogleSheetsGatewayFromAdc } from './lib/server/integrations/google-sheets/google-api-gateway';
@@ -14,15 +15,14 @@ import {
   recoverStaleClaims,
 } from './lib/server/services/phase-3-scheduler';
 
+const workerConfiguration = validateWorkerConfiguration();
 const database = getDatabase();
 const workerId = `phase3-${randomUUID()}`;
 const heartbeatFile = process.env.HEARTBEAT_FILE?.trim();
 let stopping = false;
 
 async function configuredAttendanceSheet() {
-  const mappingFile = process.env.GOOGLE_SHEETS_MAPPING_FILE?.trim();
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  const worksheetId = process.env.GOOGLE_SHEETS_WORKSHEET_ID?.trim();
+  const { mappingFile, spreadsheetId, worksheetId } = workerConfiguration;
   if (!mappingFile || !spreadsheetId || !worksheetId) return undefined;
   const mapping = JSON.parse(await readFile(mappingFile, 'utf8')) as unknown;
   const gateway = await createGoogleSheetsGatewayFromAdc({ spreadsheetId, access: 'read-only' });

@@ -3,10 +3,9 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 
 import { createGoogleSheetsApiFromAdc } from '../src/lib/server/integrations/google-sheets/google-api-gateway.ts';
-import { parseAttendanceSheetMapping } from '../src/lib/server/integrations/google-sheets/mapping.ts';
+import { deriveContiguousLearnerRange } from '../src/lib/server/integrations/google-sheets/mapping.ts';
 
 const ALLOWED_DOMAIN = 'launchpadphilly.org';
-const LEARNER_EMAIL_COLUMN = 'D';
 
 function requiredEnvironment(name) {
   const value = process.env[name]?.trim();
@@ -25,33 +24,57 @@ try {
     throw new Error('GOOGLE_SHEETS_WORKSHEET_ID must be a non-negative integer');
   }
 
-  const mappingPath = resolve(
-    process.env.LIFTOFF_SHEETS_MAPPING_FILE?.trim() ||
-      resolve(homedir(), '.config/liftoff/attendance-sheet.mapping.json'),
+  const inventoryPath = resolve(
+    process.env.LIFTOFF_SHEETS_INVENTORY_FILE?.trim() ||
+      resolve(homedir(), '.config/liftoff/attendance-sheet.inventory.json'),
   );
-  const mapping = parseAttendanceSheetMapping(JSON.parse(readFileSync(mappingPath, 'utf8')));
+  const inventory = JSON.parse(readFileSync(inventoryPath, 'utf8'));
+  const sheet = inventory.sheets?.[0];
+  const draft = inventory.mappingDraft;
+  if (
+    inventory.version !== 3 ||
+    inventory.sheets?.length !== 1 ||
+    !sheet ||
+    !draft ||
+    sheet.worksheetId !== worksheetId ||
+    !sheet.attendanceCandidate
+  ) {
+    throw new Error('Run the current bounded inventory before validating learner identifiers');
+  }
+
   const api = await createGoogleSheetsApiFromAdc('read-only');
   const metadata = await api.spreadsheets.get({
     spreadsheetId,
     includeGridData: false,
-    fields: 'sheets(properties(sheetId,title,sheetType))',
+    fields: 'sheets(properties(sheetId,title,sheetType,gridProperties(rowCount)))',
   });
   const worksheet = (metadata.data.sheets ?? []).find(
-    (sheet) =>
-      sheet.properties?.sheetId === worksheetId &&
-      (sheet.properties.sheetType ?? 'GRID') === 'GRID',
+    (candidate) =>
+      candidate.properties?.sheetId === worksheetId &&
+      (candidate.properties.sheetType ?? 'GRID') === 'GRID',
   );
   const title = worksheet?.properties?.title?.trim();
-  if (!title) throw new Error('Configured worksheet was not found');
+  const rowCount = worksheet?.properties?.gridProperties?.rowCount;
+  if (!title || !Number.isSafeInteger(rowCount) || rowCount < draft.dataStartRow) {
+    throw new Error('Configured worksheet was not found or has an invalid row boundary');
+  }
 
-  const range = `${quoteWorksheet(title)}!${LEARNER_EMAIL_COLUMN}${mapping.dataStartRow}:${LEARNER_EMAIL_COLUMN}${mapping.dataEndRow}`;
+  const range = `${quoteWorksheet(title)}!${draft.learnerExternalIdColumn}${draft.dataStartRow}:${draft.learnerExternalIdColumn}${rowCount}`;
   const response = await api.spreadsheets.values.get({
     spreadsheetId,
     range,
     majorDimension: 'COLUMNS',
     valueRenderOption: 'UNFORMATTED_VALUE',
   });
-  const rawIdentifiers = response.data.values?.[0] ?? [];
+  const scannedValues = response.data.values?.[0] ?? [];
+  const learnerRange = deriveContiguousLearnerRange({
+    dataStartRow: draft.dataStartRow,
+    learnerExternalIdColumn: draft.learnerExternalIdColumn,
+    identifiers: scannedValues,
+  });
+  const startOffset = learnerRange.dataStartRow - draft.dataStartRow;
+  const learnerCount = learnerRange.dataEndRow - learnerRange.dataStartRow + 1;
+  const rawIdentifiers = scannedValues.slice(startOffset, startOffset + learnerCount);
   const identifiers = rawIdentifiers.map((value) =>
     String(value ?? '')
       .trim()
@@ -64,15 +87,18 @@ try {
     (value, index) => String(value ?? '') === identifiers[index],
   ).length;
   console.log(
-    `Learner identifier counts: configured ${mapping.dataEndRow - mapping.dataStartRow + 1}, returned ${identifiers.length}, company-domain ${validCount}, unique ${uniqueCount}, already normalized ${normalizedCount}; raw identifiers logged: no.`,
+    `Learner identifier counts: configured ${learnerCount}, returned ${identifiers.length}, company-domain ${validCount}, unique ${uniqueCount}, already normalized ${normalizedCount}; raw identifiers logged: no.`,
   );
 
   if (
-    identifiers.length !== mapping.dataEndRow - mapping.dataStartRow + 1 ||
+    identifiers.length !== learnerCount ||
     validCount !== identifiers.length ||
-    uniqueCount !== identifiers.length
+    uniqueCount !== identifiers.length ||
+    normalizedCount !== identifiers.length
   ) {
-    throw new Error('Learner identifiers failed the bounded domain, presence, or uniqueness check');
+    throw new Error(
+      'Learner identifiers failed the bounded domain, presence, uniqueness, or normalization check',
+    );
   }
 
   console.log(
