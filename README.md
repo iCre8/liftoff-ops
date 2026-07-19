@@ -145,6 +145,10 @@ Secrets must stay outside the worktree. Never commit them, place them in `.env.e
 
 For a guided introduction, complete the
 [seven local external-secret management lessons](project-notes/local-secret-management-lessons.md).
+Continue with the
+[Vercel Preview/UAT and Production lessons](project-notes/vercel-environment-lessons.md)
+and the
+[Neon Postgres UAT and Production lessons](project-notes/neon-environment-lessons.md).
 
 ## Validation commands
 
