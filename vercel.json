@@ -3,9 +3,6 @@
   "framework": "sveltekit",
   "buildCommand": "pnpm db:generate && pnpm build:web",
   "git": {
-    "deploymentEnabled": {
-      "preview": false,
-      "production": false
-    }
+    "deploymentEnabled": false
   }
 }
