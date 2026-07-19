@@ -23,6 +23,7 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_UAT_ALIAS: ${{ vars.VERCEL_UAT_ALIAS }}
     steps:
       - name: Check out release candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -66,3 +67,12 @@ jobs:
             *) echo "Vercel did not return an expected deployment URL" >&2; exit 1 ;;
           esac
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+      - name: Assign stable UAT alias
+        shell: bash
+        run: |
+          case "$VERCEL_UAT_ALIAS" in
+            *.vercel.app) ;;
+            *) echo "Missing or invalid Vercel UAT alias" >&2; exit 1 ;;
+          esac
+          pnpm exec vercel alias set "${{ steps.deploy.outputs.url }}" "$VERCEL_UAT_ALIAS" --token="${{ secrets.VERCEL_TOKEN }}"

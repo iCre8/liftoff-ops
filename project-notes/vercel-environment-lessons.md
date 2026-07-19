@@ -190,12 +190,15 @@ checkout exact commit
  -> vercel pull --environment=preview
  -> vercel build
  -> vercel deploy --prebuilt
+ -> assign stable UAT alias
  -> record URL and commit
 ```
 
 The repository pins the CLI and GitHub Actions. The workflow uses a non-secret
 placeholder database URL only while generating Prisma Client for static analysis;
 the Vercel build receives the target environment through `vercel pull`.
+The stable UAT alias is environment-scoped configuration and must be reassigned to
+the newly verified deployment before OAuth testing.
 
 Never replace the workflow with an unpinned global `vercel` installation or a
 laptop deployment.
