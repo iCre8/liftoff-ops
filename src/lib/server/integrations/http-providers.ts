@@ -60,6 +60,7 @@ export class ResendLearnerMessages implements LearnerMessagePort {
     private readonly apiKey: string,
     private readonly sender: string,
     private readonly http: FetchPort = fetch,
+    private readonly replyTo?: string,
   ) {}
 
   async send(request: MessageRequest): Promise<MessageResult> {
@@ -76,6 +77,7 @@ export class ResendLearnerMessages implements LearnerMessagePort {
         to: [request.recipientExternalId],
         subject: request.subject ?? 'LiftOff program check-in',
         text: request.renderedContent,
+        ...(this.replyTo ? { reply_to: this.replyTo } : {}),
       }),
     });
     if (!response.ok)

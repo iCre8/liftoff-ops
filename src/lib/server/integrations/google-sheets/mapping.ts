@@ -14,6 +14,13 @@ const sessionMapping = z.object({
   outcomeColumn: column,
 });
 
+const detectedSessionGroup = z.object({
+  checkInColumn: column,
+  checkOutColumn: column,
+  excusedColumn: column,
+  outcomeColumn: column,
+});
+
 export const attendanceSheetMappingSchema = z
   .object({
     dataStartRow: z.number().int().min(1),
@@ -48,6 +55,7 @@ export const attendanceSheetMappingSchema = z
   });
 
 export type AttendanceSheetMapping = z.infer<typeof attendanceSheetMappingSchema>;
+export type DetectedSessionGroup = z.infer<typeof detectedSessionGroup>;
 
 export interface ContiguousLearnerRange {
   dataStartRow: number;
@@ -76,6 +84,33 @@ export function deriveContiguousLearnerRange(input: {
     dataEndRow: input.dataStartRow + lastPopulatedIndex,
     learnerExternalIdColumn: column.parse(input.learnerExternalIdColumn),
   };
+}
+
+export function parseCompleteDetectedSessionGroups(
+  input: unknown,
+  detectedCheckPairCount: number,
+): DetectedSessionGroup[] {
+  const groups = z.array(detectedSessionGroup).min(1).parse(input);
+  if (!Number.isSafeInteger(detectedCheckPairCount) || detectedCheckPairCount < 1) {
+    throw new Error('At least one complete check-in/check-out pair is required');
+  }
+  if (groups.length !== detectedCheckPairCount) {
+    throw new Error('Detected session groups do not match the complete check-in/check-out pairs');
+  }
+
+  const usedColumns = new Set<string>();
+  for (const group of groups) {
+    for (const value of [
+      group.checkInColumn,
+      group.checkOutColumn,
+      group.excusedColumn,
+      group.outcomeColumn,
+    ]) {
+      if (usedColumns.has(value)) throw new Error('Session-group columns overlap');
+      usedColumns.add(value);
+    }
+  }
+  return groups;
 }
 
 export function parseAttendanceSheetMapping(input: unknown): AttendanceSheetMapping {

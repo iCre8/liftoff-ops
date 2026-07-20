@@ -5,10 +5,9 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { createGoogleSheetsApiFromAdc } from '../src/lib/server/integrations/google-sheets/google-api-gateway.ts';
 import {
   deriveContiguousLearnerRange,
+  parseCompleteDetectedSessionGroups,
   parseAttendanceSheetMapping,
 } from '../src/lib/server/integrations/google-sheets/mapping.ts';
-
-const EXPECTED_SESSION_GROUP_COUNT = 42;
 
 function requiredEnvironment(name) {
   const value = process.env[name]?.trim();
@@ -56,26 +55,10 @@ try {
   if (sheet.worksheetId !== worksheetId || !sheet.attendanceCandidate) {
     throw new Error('The private inventory does not match the configured attendance tab');
   }
-  const groups = draft.detectedSessionGroups;
-  if (
-    !Array.isArray(groups) ||
-    groups.length !== EXPECTED_SESSION_GROUP_COUNT ||
-    groups.length !== draft.detectedCheckPairs?.length
-  ) {
-    throw new Error('The private inventory does not contain 42 complete session groups');
-  }
-  const usedColumns = new Set();
-  for (const group of groups) {
-    for (const column of [
-      group.checkInColumn,
-      group.checkOutColumn,
-      group.excusedColumn,
-      group.outcomeColumn,
-    ]) {
-      if (usedColumns.has(column)) throw new Error('Session-group columns overlap');
-      usedColumns.add(column);
-    }
-  }
+  const groups = parseCompleteDetectedSessionGroups(
+    draft.detectedSessionGroups,
+    draft.detectedCheckPairs?.length ?? 0,
+  );
 
   const api = await createGoogleSheetsApiFromAdc('read-only');
   const range = `${quoteWorksheet(sheet.worksheetTitle)}!${draft.learnerExternalIdColumn}${draft.dataStartRow}:${draft.learnerExternalIdColumn}${sheet.rowCount}`;
@@ -118,7 +101,7 @@ try {
   chmodSync(outputPath, 0o600);
 
   console.log(
-    `Private mapping finalized: ${groups.length} session groups, ${lastPopulatedIndex + 1} contiguous learner rows, raw learner values logged: no.`,
+    `Private mapping finalized: ${groups.length} session groups, ${learnerRange.dataEndRow - learnerRange.dataStartRow + 1} contiguous learner rows, raw learner values logged: no.`,
   );
   console.log(`Private mapping written with mode 0600: ${outputPath}`);
 } catch {

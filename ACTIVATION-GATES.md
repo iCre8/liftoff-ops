@@ -47,6 +47,9 @@ The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_
 - 2026-07-19: The shared dev/UAT database's three sanitized seed accounts correctly blocked empty-database initial-admin bootstrap. An approved UAT-only command created one active corporate account and global admin role atomically; a second apply was a no-op and logged no identifying value.
 - 2026-07-19: Corporate Google Workspace sign-in succeeded through the stable protected UAT alias. Count-only database verification confirmed one linked corporate identity, one completed sign-in, and one active session without logging identity or token values.
 - 2026-07-20: The exact copied dev/UAT workbook granted the dedicated UAT service account Viewer access. A bounded read-only proof succeeded without requesting cell values or printing workbook identifiers. The refreshed GitHub UAT Vercel credential also recovered the gated deployment and restored the stable alias.
+- 2026-07-20: Replaced the empty sanitized UAT roster with the approved 14-row D10:D23 company-email roster in one fail-closed transaction. The cohort is named Cohort 3, remains disabled, preserves eight template drafts, and contains no development session. Count-only verification found 14 Neon learners, 14 Slack directory matches, zero prewritten Slack mappings, and one audit event.
+- 2026-07-20: Cleared Gate 5. The protected Slack webhook, exact 14-learner mapping, one staff-only canary, real reaction/thread events, duplicate suppression, and tampered/stale rejection all passed with automation disabled and zero learner outreach.
+- 2026-07-20: Gate 6 UAT configuration reached the hosted-deployment boundary. Corrected the owner-only webhook-secret filename, tightened all four Resend files to mode `0600`, verified public DKIM/SPF/return-path DNS for `uat-mail.liftofflearning.tech`, passed the no-contact two-staff allowlist preflight, and added only the Sensitive branch-scoped webhook secret to Vercel Preview `uat`. No email was sent.
 
 ## Gate status checklist
 
@@ -54,7 +57,7 @@ The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_
 - [x] Gate 2 — Google Workspace OAuth client created; real organization sign-in verified
 - [x] Gate 3 — Neon production database branch and migration authorization
 - [x] Gate 4 — Hosting: Vercel web app + worker runtime, GitHub environments
-- [ ] Gate 5 — Slack non-production validation
+- [x] Gate 5 — Slack non-production validation
 - [ ] Gate 6 — Resend non-production validation
 - [ ] Gate 7 — Privacy and compliance review recorded
 - [ ] Gate 8 — Dry-run evidence: five complete days + formal staff review
@@ -187,9 +190,9 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 ---
 
-## Gate 5 — Slack non-production validation [IN PROGRESS — LOCAL SAFEGUARDS READY]
+## Gate 5 — Slack non-production validation [CLEARED]
 
-**Why this gate exists.** Learner Slack outreach is a private bot DM resolved through an admin-previewed mapping from provisioned company email to stable Slack member ID. Webhooks are verified against the unmodified raw body with a five-minute replay window and constant-time comparison, and provider event IDs are deduplicated in Postgres. The admin workflow now re-resolves every email before an atomic, individually confirmed mapping update. Acknowledgments must come from an allowlisted staff member in one configured staff channel. No real Slack app is configured yet. The integration fails closed while `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_STAFF_MEMBER_IDS`, or `SLACK_STAFF_CHANNEL_ID` (each also accepted as `<NAME>_FILE`) is absent.
+**Why this gate exists.** Learner Slack outreach is a private bot DM resolved through an admin-previewed mapping from provisioned company email to stable Slack member ID. Webhooks are verified against the unmodified raw body with a five-minute replay window and constant-time comparison, and provider event IDs are deduplicated in Postgres. The admin workflow now re-resolves every email before an atomic, individually confirmed mapping update. Acknowledgments must come from an allowlisted staff member in one configured staff channel. A dedicated UAT Slack app and private staff channel are configured, but mapping and canary evidence are not yet complete. The integration fails closed while `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_STAFF_MEMBER_IDS`, or `SLACK_STAFF_CHANNEL_ID` (each also accepted as `<NAME>_FILE`) is absent.
 
 **Steps.**
 
@@ -201,27 +204,30 @@ Identity validation derives its boundary from the owner-only inventory file and 
 6. In the admin workspace, preview the email → member-ID learner mapping and confirm each resolution before it is used.
 7. Run `pnpm slack:validate-uat` for a read-only authentication and allowlist preflight. After explicit authorization, run `pnpm slack:validate-uat -- --send-staff-canary` once; it refuses a second send while its owner-only receipt exists. With the cohort still in `dry_run`, add one staff reaction and one thread reply, then verify signed delivery and deduplication. Never send to a learner until Gate 10.
 
-**Current evidence.** Local checks pass with 19 test files and 81 sanitized tests. Tests cover signature freshness/tampering, directory normalization and inactive/bot/mismatch rejection, staff/channel acknowledgment boundaries, and loading the validation command under the pinned Node runtime. The owner-only Slack files have mode `0600`. A real bot completed the read-only authentication preflight, and exactly one active human staff account matched the allowlist; no provider identifiers were logged and no message was sent. The admin mapping preview requires every row to be checked, re-resolves the directory, rejects duplicate Slack IDs, updates mappings atomically, and writes a count-only audit event. Hosted secret configuration, webhook verification, real learner mapping review, and the one staff-only canary remain pending. Gate status confidence: **70%**.
+**Cleared 2026-07-20.** Local checks pass with sanitized tests covering signature freshness/tampering, directory normalization and inactive/bot/mismatch rejection, staff/channel acknowledgment boundaries, command loading, dynamic Sheet session-group validation, and the fail-closed UAT roster repair. The owner-only Slack files and canary receipt have mode `0600`. The real bot passed read-only authentication, and exactly one active human staff account matched the allowlist. All four Slack settings and the corrected pooled/TLS-verified database URL are encrypted Vercel Preview values restricted to the `uat` branch; production remains untouched. Gated runs `29745803454`, `29748815000`, and `29750970270` successively deployed the corrected signing secret, bot token, and database override while preserving the stable protected alias. Slack's real URL-verification request returned HTTP 200. The approved idempotent roster transaction provisioned the 14 D10:D23 learners, preserved eight templates, and left Cohort 3 disabled. An administrator reviewed and atomically confirmed 14 unique Slack mappings; one count-only audit event records all 14. The single learner-free staff canary produced one reaction and one thread reply; three real signed provider events returned HTTP 200. A repeated synthetic event returned HTTP 200 twice but produced exactly one database row, while tampered and stale variants returned HTTP 401. Final count-only verification found 14 confirmed mappings, four unique stored Slack events including the deduplication proof, zero linked outreach events, and zero outreach attempts. No learner message was sent. Gate status confidence: **100%**.
 
-**Verification.** Signed webhook accepted, tampered/stale webhook rejected, duplicate event ID ignored, and a staff-authored reaction recorded as an acknowledgment.
+**Verification.** Signed webhook accepted, tampered/stale webhook rejected, duplicate event ID ignored, and staff-authored reaction/thread events recorded without learner outreach.
 
 **Unblocks:** Slack half of Milestone 4 activation evidence. Not needed for the Jul 24 pilot — dry-run plans messages without sending.
 
 ---
 
-## Gate 6 — Resend non-production validation [PENDING]
+## Gate 6 — Resend non-production validation [IN PROGRESS — UAT CONFIG READY]
 
 **Why this gate exists.** Escalation and team email goes through Resend with the same fail-closed posture: no `RESEND_API_KEY` / `RESEND_WEBHOOK_SECRET`, no email. Webhooks are Svix-signed and replay-protected; delivery outcomes are stored under idempotency keys so a retry can never double-send.
 
 **Steps.**
 
-1. Create the Resend account/team; verify the sending domain (SPF + DKIM records on `launchpadphilly.org` or a dedicated subdomain such as `mail.launchpadphilly.org` — a subdomain isolates deliverability reputation and is recommended).
-2. Create separate API keys for UAT and production; store as owner-only secret files.
-3. Register the webhook endpoint `https://<uat-domain>/webhooks/resend`; store the Svix signing secret.
-4. Configure the team recipient list as environment configuration, not code.
-5. From UAT, send test messages to staff addresses only; confirm delivery events arrive signed and are deduplicated.
+1. Create separate Resend teams for UAT and production. Verify `uat-mail.liftofflearning.tech` for UAT and reserve `mail.liftofflearning.tech` for the later production gate; copy only the exact SPF, DKIM, and return-path records Resend generates for each subdomain without changing the root domain's existing mail records.
+2. Create separate sending-only API keys restricted to their exact environment domains; store as owner-only secret files and never promote a UAT credential into production.
+3. Register the webhook endpoint `https://<uat-domain>/webhooks/resend?x-vercel-protection-bypass=<dedicated-resend-bypass-secret>` for `email.sent`, `email.delivered`, `email.bounced`, and `email.failed`; store the Svix signing secret. Treat the complete URL as sensitive. Resend signatures remain the application-level authentication boundary after the dedicated bypass passes Vercel Authentication.
+4. Configure `RESEND_SENDER` as `LiftOff UAT <notifications@uat-mail.liftofflearning.tech>`, set `RESEND_REPLY_TO` to a monitored `@launchpadphilly.org` staff address, and configure the external `RESEND_STAFF_RECIPIENTS_FILE` and `RESEND_UAT_CANARY_RECIPIENT_FILE`. Both Reply-To and canary recipient must be members of the staff allowlist; never put addresses in the repository.
+5. Run `pnpm resend:validate-uat` for a no-contact local configuration preflight. After explicit authorization, run `pnpm resend:validate-uat -- --send-staff-canary` once. It writes an owner-only receipt before provider contact, sends one learner-free staff message, and repeats the identical request with the same idempotency key to prove that Resend returns the same message reference instead of sending twice.
+6. Confirm DKIM-aligned delivery in the staff inbox, signed `email.sent` and `email.delivered` events in UAT Postgres, replay one event to prove deduplication, and verify that malformed/stale signatures fail closed. Keep Cohort 3 automation `DISABLED` and verify zero learner outreach attempts.
 
-**Verification.** DKIM-aligned delivery to a staff inbox, signed delivery events recorded, duplicate events ignored, and environment separation confirmed (UAT key cannot appear in production config).
+**Current evidence.** Local safeguards are complete: 22 test files and 92 sanitized tests pass, Svelte/TypeScript reports zero diagnostics, web and worker production builds pass, and Compose renders successfully. The validator enforces the exact UAT sending subdomain, corporate staff-only Reply-To/canary allowlists, a pre-contact receipt, and provider idempotency. The application adapter emits Reply-To, while delivery ingestion prevents older out-of-order events from regressing state. All four nonempty Resend files are mode `0600`; the UAT DKIM, SPF, and return-path records resolve publicly; and the no-contact preflight passed with two staff allowlist entries. Only `RESEND_WEBHOOK_SECRET` is a Sensitive Vercel Preview value restricted to branch `uat`; the sending key and addresses remain local. A gated redeployment, hosted signed-webhook proof, and the separately approved staff canary remain pending. No email has been sent. Gate status confidence: **70%**.
+
+**Verification.** DKIM-aligned delivery from the exact UAT subdomain to a staff inbox, monitored corporate Reply-To, signed delivery events recorded without out-of-order status regression, duplicate events ignored, and environment separation confirmed. The UAT key and webhook secret must not appear in production configuration.
 
 **Unblocks:** email half of Milestone 4 activation evidence. Not needed for the Jul 24 pilot.
 
