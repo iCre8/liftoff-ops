@@ -11,15 +11,16 @@ This file records verified, project-specific configuration decisions so implemen
 - Keep time-sensitive versions tied to committed lockfiles or immutable image digests.
 - Record reusable cross-project patterns in the shared agent operations library as well.
 
-## Local environment-file permissions
+## Local secret-file permissions
 
 - Date: 2026-07-14
-- Scope: developer workstations and agent sessions that use the repository-root `.env` file.
-- Decision: `.env` must be readable and writable only by its owner (`0600`). It remains ignored by source control.
+- Scope: developer workstations, agent sessions, and worker hosts that use repository-root `.env` or external secret/configuration files.
+- Decision: every secret-bearing local file must be readable and writable only by its owning operating-system account (`0600`), with its private parent directory set to `0700`. Mode `0600` allows the owner to rotate credentials and update guarded receipts while denying group and other users both read and write access. This reduces disclosure of bearer credentials and identifying configuration and prevents another local account from replacing a trusted value. Files remain ignored by source control.
 - Implementation:
 
   ```sh
-  chmod 600 .env
+  chmod 700 /path/to/private-directory
+  chmod 600 .env /path/to/private-directory/secret-file
   ```
 
 - Verification:
