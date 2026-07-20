@@ -164,6 +164,22 @@ pnpm exec vercel env add GOOGLE_OAUTH_CLIENT_SECRET preview --sensitive \
 
 Vercel variable changes affect only new deployments, so redeploy after any change.
 
+When local development doubles as UAT, sanitized seed accounts make the normal
+empty-database first-admin bootstrap intentionally fail closed. An authorized
+operator must provide the same external `INITIAL_ADMIN_EMAIL` and dev/UAT
+`DATABASE_URL_FILE`, preview the bounded change, and apply it explicitly:
+
+```sh
+pnpm uat:provision-initial-admin --uat
+pnpm uat:provision-initial-admin --uat --apply
+```
+
+The command refuses non-company and inactive accounts, creates only an active
+global administrator, records audit events, and is idempotent. Never load
+Production configuration into this command. A second apply must report
+`account=preserve` and `global-admin-role=preserve` without printing the
+email or database target.
+
 ### Exercise
 
 Compare the expected variable-name list with `vercel env ls preview`. Report names,
