@@ -11,522 +11,516 @@
 </svelte:head>
 
 <main>
-  <header>
-    <div>
-      <p class="eyebrow">Attendance operations</p>
+  <header class="hero-banner">
+    <div class="hero-content">
+      <p class="eyebrow">Attendance Operations Engine</p>
       <h1>{data.cohort}</h1>
       <p class="lede">
-        The approved attendance rules are executable. Provider writes remain disabled until their
-        non-production contracts and identities are verified.
+        The approved attendance rules and multi-role operations pipeline are fully executable.
+        Provider writes remain safe-gated in dry-run mode.
       </p>
     </div>
-    <span class="mode">Integration mode: {data.integrationMode}</span>
+    <div class="hero-status">
+      <span class="mode-chip">Mode: {data.integrationMode}</span>
+      <span class="time-chip">America/New_York (EST)</span>
+    </div>
   </header>
 
-  <section class="workspace-entry" aria-labelledby="workspace-entry">
-    <div>
-      <p class="eyebrow">Module 2 workspace</p>
-      <h2 id="workspace-entry">
-        {data.accountName ? `Continue as ${data.accountName}` : 'Open the forms workspace'}
-      </h2>
-    </div>
-    <div class="workspace-links">
-      {#each data.workspaces as workspace}
-        <a href={workspace.href}>
-          <strong>{workspace.label}</strong>
-          <span>{workspace.description}</span>
-        </a>
-      {/each}
-      {#if data.workspaces.length === 0 && data.developmentSignInHref}
-        <a href={data.developmentSignInHref}>
-          <strong>Choose a sanitized development identity</strong>
-          <span>Use the learner identity to view and submit today&apos;s forms.</span>
-        </a>
-      {:else if data.workspaces.length === 0 && data.googleSignInHref}
-        <a href={data.googleSignInHref}>
-          <strong>Sign in with Google Workspace</strong>
-          <span>Use your company-provided @launchpadphilly.org account.</span>
-        </a>
-      {:else if data.workspaces.length === 0}
-        <p>Google Workspace sign-in is not configured in this environment yet.</p>
+  <!-- Workspace Entry Cards -->
+  <section class="panel workspace-panel" aria-labelledby="workspace-entry">
+    <div class="panel-top">
+      <div>
+        <p class="eyebrow">Module 2 Workspace</p>
+        <h2 id="workspace-entry">
+          {data.accountName ? `Logged in as ${data.accountName}` : 'Available Workspaces'}
+        </h2>
+      </div>
+      {#if data.accountName}
+        <form method="POST" action="/auth/logout">
+          <button class="btn-logout">Sign out</button>
+        </form>
       {/if}
     </div>
-    {#if data.accountName}
-      <form method="POST" action="/auth/logout"><button>Sign out</button></form>
-    {/if}
+
+    <div class="workspace-grid">
+      {#each data.workspaces as workspace}
+        <a href={workspace.href} class="workspace-card">
+          <div class="card-icon">
+            {#if workspace.href.includes('learner')}
+              🌅
+            {:else if workspace.href.includes('operations')}
+              📥
+            {:else if workspace.href.includes('automation')}
+              ⚡
+            {:else}
+              🚀
+            {/if}
+          </div>
+          <div class="card-text">
+            <strong>{workspace.label}</strong>
+            <p>{workspace.description}</p>
+          </div>
+          <div class="arrow">→</div>
+        </a>
+      {/each}
+
+      {#if data.workspaces.length === 0 && data.developmentSignInHref}
+        <a href={data.developmentSignInHref} class="workspace-card dev-card">
+          <div class="card-icon">🔑</div>
+          <div class="card-text">
+            <strong>Choose a Sanitized Development Identity</strong>
+            <p>Use the learner or staff identity to test forms and operations.</p>
+          </div>
+          <div class="arrow">→</div>
+        </a>
+      {:else if data.workspaces.length === 0 && data.googleSignInHref}
+        <a href={data.googleSignInHref} class="workspace-card google-card">
+          <div class="card-icon">🌐</div>
+          <div class="card-text">
+            <strong>Sign in with Google Workspace</strong>
+            <p>Use your company-provided @launchpadphilly.org account.</p>
+          </div>
+          <div class="arrow">→</div>
+        </a>
+      {:else if data.workspaces.length === 0}
+        <div class="info-card">
+          <p>Google Workspace sign-in is not configured in this environment yet.</p>
+        </div>
+      {/if}
+    </div>
   </section>
 
-  <section aria-labelledby="daily-schedule">
-    <div class="section-heading">
+  <!-- Daily Program Schedule -->
+  <section class="panel" aria-labelledby="daily-schedule">
+    <div class="panel-top">
       <div>
-        <p class="eyebrow">America/New_York</p>
-        <h2 id="daily-schedule">Daily schedule</h2>
+        <p class="eyebrow">Cohort Routine</p>
+        <h2 id="daily-schedule">Daily Attendance Schedule</h2>
       </div>
-      <p>Active program days only</p>
+      <span class="pill-badge">Active Program Days Only</span>
     </div>
-    <ol class="timeline">
+
+    <ol class="schedule-timeline">
       {#each data.schedule as event}
-        <li>
-          <time>{event.time}</time>
-          <span>{event.label}</span>
+        <li class="timeline-step">
+          <div class="step-time">{event.time}</div>
+          <div class="step-line">
+            <span class="step-dot"></span>
+          </div>
+          <div class="step-label">{event.label}</div>
         </li>
       {/each}
     </ol>
   </section>
 
-  <section aria-labelledby="readiness">
-    <div class="section-heading">
+  <!-- Integration Readiness Boundary -->
+  <section class="panel" aria-labelledby="readiness">
+    <div class="panel-top">
       <div>
-        <p class="eyebrow">Safe implementation boundary</p>
-        <h2 id="readiness">Integration readiness</h2>
+        <p class="eyebrow">Safe Implementation Boundary</p>
+        <h2 id="readiness">Integration Readiness Status</h2>
       </div>
     </div>
+
     <ul class="readiness-grid">
       {#each data.readiness as item}
-        <li>
-          <span class:ready={item.state === 'implemented'} class="status-dot"></span>
-          <div>
+        <li class="readiness-card">
+          <span class="status-dot" class:ready={item.state === 'implemented'}></span>
+          <div class="readiness-text">
             <strong>{item.label}</strong>
-            <span>{item.state}</span>
+            <span class="state-lbl">{item.state}</span>
           </div>
         </li>
       {/each}
     </ul>
   </section>
 
-  <section class="policy" aria-labelledby="thresholds">
-    <div>
-      <p class="eyebrow">Two-week view</p>
-      <h2 id="thresholds">Attendance thresholds</h2>
+  <!-- Attendance Policy Thresholds -->
+  <section class="panel policy-panel" aria-labelledby="thresholds">
+    <div class="panel-top">
+      <div>
+        <p class="eyebrow">Two-Week View</p>
+        <h2 id="thresholds">Attendance Rate Thresholds</h2>
+      </div>
     </div>
-    <div class="threshold healthy">
-      <strong>Healthy</strong>
-      <span>80% or higher</span>
-    </div>
-    <div class="threshold warning">
-      <strong>Warning</strong>
-      <span>75%-79.99%</span>
-    </div>
-    <div class="threshold concern">
-      <strong>Concern</strong>
-      <span>Below 75%</span>
+
+    <div class="threshold-grid">
+      <div class="threshold-card healthy">
+        <span class="t-badge">Healthy</span>
+        <strong class="t-val">80% or higher</strong>
+        <p class="t-desc">On-track attendance status with standard support</p>
+      </div>
+
+      <div class="threshold-card warning">
+        <span class="t-badge">Warning</span>
+        <strong class="t-val">75% – 79.99%</strong>
+        <p class="t-desc">Early warning state requiring TA/Instructor outreach</p>
+      </div>
+
+      <div class="threshold-card concern">
+        <span class="t-badge">Concern</span>
+        <strong class="t-val">Below 75%</strong>
+        <p class="t-desc">Escalated concern state with mandatory action plan</p>
+      </div>
     </div>
   </section>
 </main>
 
 <style>
-  :global(body) {
-    background-color: var(--color-bg);
-  }
-
   main {
-    width: min(1200px, calc(100% - 2.5rem));
+    width: min(1280px, calc(100% - 2.5rem));
     margin: 0 auto;
-    padding: 3rem 0 6rem;
+    padding: 2.5rem 0 6rem;
     display: flex;
     flex-direction: column;
-    gap: 1.75rem;
-  }
-
-  header,
-  section {
-    background: var(--color-card-bg);
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    backdrop-filter: blur(12px);
-    transition:
-      transform var(--transition-normal),
-      box-shadow var(--transition-normal),
-      border-color var(--transition-normal);
-  }
-
-  header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
     gap: 2rem;
-    padding: clamp(2rem, 5vw, 3.5rem);
+  }
+
+  .hero-banner {
     background: linear-gradient(135deg, var(--color-primary) 0%, hsl(155, 60%, 11%) 100%);
-    color: hsl(140, 40%, 96%);
     border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-lg);
+    padding: clamp(2.5rem, 5vw, 3.5rem);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+    box-shadow: var(--shadow-md);
     position: relative;
     overflow: hidden;
   }
 
-  header::before {
+  .hero-banner::before {
     content: '';
     position: absolute;
     top: -50%;
     right: -20%;
     width: 60%;
     height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 70%);
     transform: rotate(-15deg);
     pointer-events: none;
   }
 
-  h1,
-  h2,
-  p {
-    margin-top: 0;
+  .eyebrow {
+    color: hsl(145, 65%, 65%);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin: 0 0 0.4rem;
   }
 
   h1 {
-    max-width: 15ch;
-    margin-bottom: 1.25rem;
-    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-size: clamp(2.2rem, 4.5vw, 3.2rem);
     font-weight: 800;
-    line-height: 1.05;
     letter-spacing: -0.04em;
+    margin: 0 0 0.85rem;
     color: white;
   }
 
-  h2 {
-    margin-bottom: 0.5rem;
-    font-size: clamp(1.3rem, 3vw, 1.8rem);
-    font-weight: 700;
-    letter-spacing: -0.025em;
-  }
-
-  .eyebrow {
-    margin-bottom: 0.75rem;
-    color: var(--color-text-muted);
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-
-  header .eyebrow {
-    color: hsl(145, 65%, 65%);
-  }
-
   .lede {
-    max-width: 60ch;
-    margin-bottom: 0;
-    color: hsl(140, 20%, 82%);
-    line-height: 1.7;
-    font-size: 1.05rem;
-  }
-
-  .mode {
-    flex: none;
-    padding: 0.6rem 1.1rem;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: hsl(140, 100%, 92%);
-    font-size: 0.82rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    backdrop-filter: blur(4px);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  }
-
-  section {
-    padding: clamp(1.5rem, 3vw, 2.5rem);
-  }
-
-  section:hover {
-    border-color: rgba(47, 112, 74, 0.25);
-    box-shadow: var(--shadow-lg);
-  }
-
-  .section-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-    border-bottom: 1px solid var(--color-card-border);
-    padding-bottom: 1.25rem;
-  }
-
-  .section-heading > p {
-    align-self: flex-end;
-    margin-bottom: 0;
-    color: var(--color-text-muted);
-    font-size: 0.88rem;
-    font-weight: 500;
-  }
-
-  .timeline,
-  .readiness-grid {
+    max-width: 65ch;
+    color: hsl(140, 20%, 85%);
+    line-height: 1.6;
     margin: 0;
-    padding: 0;
-    list-style: none;
+    font-size: 1rem;
   }
 
-  .timeline {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.25rem;
-  }
-
-  .timeline li {
+  .hero-status {
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  .mode-chip,
+  .time-chip {
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .mode-chip {
+    background: var(--color-accent);
+    color: white;
+  }
+
+  .time-chip {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .panel {
+    background: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+  }
+
+  .panel-top {
+    display: flex;
     justify-content: space-between;
-    min-height: 8.5rem;
+    align-items: center;
+    padding: 1.5rem 1.75rem;
+    border-bottom: 1px solid var(--color-card-border);
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  .panel-top h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--color-primary);
+  }
+
+  .pill-badge {
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .workspace-grid {
+    padding: 1.5rem 1.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.25rem;
-    padding: 1.5rem;
+  }
+
+  .workspace-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: white;
     border: 1px solid var(--color-card-border);
     border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.4);
+    text-decoration: none;
     transition: all var(--transition-normal);
   }
 
-  .timeline li:hover {
-    transform: translateY(-4px);
+  .workspace-card:hover {
+    transform: translateY(-2px);
     border-color: var(--color-accent);
-    background: white;
     box-shadow: var(--shadow-md);
   }
 
-  time {
-    color: var(--color-accent);
-    font-size: 0.88rem;
-    font-weight: 800;
-    font-family: var(--font-heading);
-    letter-spacing: -0.01em;
-  }
-
-  .timeline span {
-    font-weight: 700;
-    font-size: 1.05rem;
-    color: var(--color-primary);
-    line-height: 1.3;
-  }
-
-  .readiness-grid {
+  .card-icon {
+    font-size: 1.75rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-light);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex-grow: 1;
+  }
+
+  .card-text strong {
+    font-size: 1rem;
+    color: var(--color-primary);
+  }
+
+  .card-text p {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .arrow {
+    font-size: 1.25rem;
+    color: var(--color-accent);
+    transition: transform var(--transition-fast);
+  }
+
+  .workspace-card:hover .arrow {
+    transform: translateX(4px);
+  }
+
+  .btn-logout {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-card-border);
+    background: white;
+    color: hsl(0, 70%, 45%);
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+
+  .schedule-timeline {
+    padding: 2rem 1.75rem;
+    margin: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
   }
 
-  .readiness-grid li {
+  .timeline-step {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .step-time {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--color-accent);
+    width: 6ch;
+  }
+
+  .step-line {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+
+  .step-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    box-shadow: 0 0 8px var(--color-accent-glow);
+  }
+
+  .step-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-primary);
+  }
+
+  .readiness-grid {
+    padding: 1.5rem 1.75rem;
+    margin: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .readiness-card {
+    display: flex;
+    align-items: center;
     gap: 0.85rem;
-    min-height: 6.5rem;
-    padding: 1.25rem;
+    padding: 1rem;
+    background: white;
     border: 1px solid var(--color-card-border);
     border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.4);
-    transition: all var(--transition-normal);
   }
 
-  .readiness-grid li:hover {
-    transform: translateY(-3px);
-    border-color: var(--color-accent);
-    background: white;
-    box-shadow: var(--shadow-md);
+  .status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: hsl(45, 90%, 50%);
   }
 
-  .readiness-grid div {
-    display: grid;
-    align-content: start;
-    gap: 0.35rem;
+  .status-dot.ready {
+    background: hsl(145, 65%, 45%);
+    box-shadow: 0 0 8px hsl(145, 65%, 45%);
   }
 
-  .readiness-grid strong {
-    font-size: 0.95rem;
-    font-weight: 700;
+  .readiness-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .readiness-text strong {
+    font-size: 0.9rem;
     color: var(--color-primary);
-    line-height: 1.3;
   }
 
-  .readiness-grid div span {
+  .state-lbl {
+    font-size: 0.78rem;
     color: var(--color-text-muted);
-    font-size: 0.8rem;
-    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .threshold-grid {
+    padding: 1.5rem 1.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .threshold-card {
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid var(--color-card-border);
+  }
+
+  .threshold-card.healthy {
+    background: hsl(140, 50%, 96%);
+    border-color: hsl(140, 50%, 85%);
+  }
+
+  .threshold-card.warning {
+    background: hsl(45, 100%, 96%);
+    border-color: hsl(45, 90%, 85%);
+  }
+
+  .threshold-card.concern {
+    background: hsl(3, 100%, 96%);
+    border-color: hsl(3, 90%, 88%);
+  }
+
+  .t-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
-  .status-dot {
-    width: 0.6rem;
-    height: 0.6rem;
-    flex: none;
-    margin-top: 0.35rem;
-    border-radius: 50%;
-    background: hsl(38, 90%, 55%);
-    box-shadow: 0 0 8px hsla(38, 90%, 55%, 0.4);
-    transition: all var(--transition-normal);
+  .healthy .t-badge {
+    color: hsl(145, 75%, 28%);
+  }
+  .warning .t-badge {
+    color: hsl(40, 80%, 30%);
+  }
+  .concern .t-badge {
+    color: hsl(3, 75%, 38%);
   }
 
-  .status-dot.ready {
-    background: var(--color-accent);
-    box-shadow: 0 0 12px var(--color-accent-glow);
-    animation: pulse-green 2.5s infinite alternate ease-in-out;
-  }
-
-  @keyframes pulse-green {
-    0% {
-      box-shadow: 0 0 2px var(--color-accent-glow);
-    }
-    100% {
-      box-shadow: 0 0 12px var(--color-accent);
-    }
-  }
-
-  .workspace-entry {
-    display: grid;
-    grid-template-columns: 0.9fr 1.1fr;
-    gap: 2rem;
-    align-items: center;
-  }
-
-  .workspace-links {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .workspace-links a {
-    display: grid;
-    gap: 0.35rem;
-    padding: 1.5rem;
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--radius-md);
-    background: var(--color-accent-light);
+  .t-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-family: var(--font-heading);
     color: var(--color-primary);
-    text-decoration: none;
-    transition: all var(--transition-normal);
-    box-shadow: var(--shadow-sm);
   }
 
-  .workspace-links a:hover,
-  .workspace-links a:focus-visible {
-    border-color: var(--color-accent);
-    background: white;
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-    outline: 3px solid var(--color-accent-glow);
-  }
-
-  .workspace-links a strong {
-    font-family: var(--font-heading);
-    font-size: 1.15rem;
-    font-weight: 700;
-  }
-
-  .workspace-links span {
+  .t-desc {
+    font-size: 0.82rem;
     color: var(--color-text-muted);
-    font-size: 0.88rem;
-    line-height: 1.4;
-  }
-
-  form button {
-    padding: 0.75rem 1.5rem;
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-text-muted);
-    font-weight: 700;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  form button:hover {
-    background: hsl(0, 75%, 97%);
-    color: hsl(0, 75%, 45%);
-    border-color: hsl(0, 75%, 90%);
-  }
-
-  .policy {
-    display: grid;
-    grid-template-columns: 1.2fr repeat(3, 1fr);
-    gap: 1rem;
-    align-items: stretch;
-  }
-
-  .policy > div:first-child {
-    align-self: center;
-  }
-
-  .threshold {
-    display: grid;
-    align-content: center;
-    gap: 0.4rem;
-    min-height: 7.5rem;
-    padding: 1.5rem;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid transparent;
-    transition: all var(--transition-normal);
-  }
-
-  .threshold:hover {
-    transform: scale(1.03);
-    box-shadow: var(--shadow-md);
-  }
-
-  .threshold strong {
-    font-family: var(--font-heading);
-    font-size: 1.25rem;
-    font-weight: 700;
-  }
-
-  .threshold span {
-    font-size: 0.9rem;
-    font-weight: 600;
-    opacity: 0.85;
-  }
-
-  .healthy {
-    background: hsl(140, 52%, 94%);
-    color: hsl(150, 48%, 16%);
-    border-color: hsl(140, 50%, 88%);
-  }
-
-  .warning {
-    background: hsl(45, 100%, 94%);
-    color: hsl(40, 60%, 20%);
-    border-color: hsl(45, 90%, 86%);
-  }
-
-  .concern {
-    background: hsl(3, 100%, 96%);
-    color: hsl(3, 60%, 25%);
-    border-color: hsl(3, 90%, 90%);
+    margin: 0;
   }
 
   @media (max-width: 860px) {
-    main {
-      padding-top: 1rem;
-      gap: 1.25rem;
-    }
-
-    header,
-    .section-heading,
-    .workspace-entry {
+    .hero-banner {
       flex-direction: column;
-      grid-template-columns: 1fr;
-      align-items: stretch;
-      gap: 1.5rem;
     }
-
-    .mode {
-      align-self: flex-start;
-    }
-
-    .timeline,
-    .readiness-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .policy {
-      grid-template-columns: 1fr;
-    }
-
-    .timeline li {
-      min-height: auto;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.5rem;
-      padding: 1.25rem;
+    .hero-status {
+      align-items: flex-start;
     }
   }
 </style>

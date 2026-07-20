@@ -1,14 +1,35 @@
 <script lang="ts">
   let { data } = $props();
+
+  const getRoleIcon = (role: string) => {
+    switch (role.toUpperCase()) {
+      case 'ADMIN':
+        return '👑';
+      case 'FACILITATOR':
+        return '🌿';
+      case 'INSTRUCTOR':
+        return '🎓';
+      case 'LEARNER':
+        return '🚀';
+      default:
+        return '👤';
+    }
+  };
 </script>
 
-<svelte:head><title>Sanitized development sign-in</title></svelte:head>
+<svelte:head><title>Development Identity Sign-In | LiftOff</title></svelte:head>
+
 <main>
   <div class="login-card">
-    <p class="eyebrow">Development environment only</p>
-    <h1>Choose a sanitized identity</h1>
+    <div class="header-badge">
+      <span class="badge-dot"></span>
+      Development Environment Only
+    </div>
+
+    <h1>Choose a Sanitized Identity</h1>
     <p class="description">
-      This authentication portal is fail-closed in production and is backed by local dev seeds only.
+      This authentication portal is fail-closed in production environments and is backed by local
+      dev seeds only.
     </p>
 
     <div class="accounts">
@@ -19,18 +40,16 @@
           <input type="hidden" name="email" value={account.email} />
           <button class="account-card {primaryRole.toLowerCase()}">
             <div class="avatar-container">
-              <span class="avatar-text">
-                {displayName
-                  .split(' ')
-                  .map((n: string) => n[0])
-                  .join('')}
-              </span>
+              <span class="role-icon">{getRoleIcon(primaryRole)}</span>
             </div>
             <div class="account-details">
               <strong>{displayName}</strong>
-              <span class="role-badge"
-                >{account.roles.map((role: { role: string }) => role.role).join(' · ')}</span
-              >
+              <span class="email-sub">{account.email}</span>
+              <div class="role-badges">
+                {#each account.roles as roleObj}
+                  <span class="role-badge {roleObj.role.toLowerCase()}">{roleObj.role}</span>
+                {/each}
+              </div>
             </div>
             <div class="arrow">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor">
@@ -51,54 +70,64 @@
 
 <style>
   main {
-    min-height: 100vh;
+    min-height: calc(100vh - 10rem);
     display: grid;
     place-items: center;
-    padding: 2rem;
+    padding: 3rem 1.5rem;
   }
 
   .login-card {
-    width: min(540px, 100%);
+    width: min(560px, 100%);
     background: var(--color-card-bg);
     border: 1px solid var(--color-card-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(12px);
-    padding: clamp(2rem, 5vw, 3rem);
+    backdrop-filter: blur(16px);
+    padding: clamp(2rem, 5vw, 3.25rem);
     text-align: center;
-    transition: border-color var(--transition-normal);
   }
 
-  .login-card:hover {
-    border-color: rgba(47, 112, 74, 0.2);
-  }
-
-  h1 {
-    font-size: clamp(1.8rem, 3vw, 2.3rem);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    margin: 0.5rem 0 1rem;
-    line-height: 1.15;
-  }
-
-  .eyebrow {
-    color: var(--color-accent);
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    background: hsl(45, 100%, 94%);
+    color: hsl(40, 80%, 25%);
     font-size: 0.75rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    margin: 0;
+    letter-spacing: 0.08em;
+    border: 1px solid hsl(45, 90%, 82%);
+    margin-bottom: 1rem;
+  }
+
+  .badge-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: hsl(40, 80%, 45%);
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 0 0 0.75rem;
+    color: var(--color-primary);
   }
 
   .description {
     color: var(--color-text-muted);
     font-size: 0.95rem;
-    line-height: 1.5;
-    margin: 0 0 2.5rem;
+    line-height: 1.6;
+    margin: 0 0 2rem;
   }
 
   .accounts {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
     text-align: left;
   }
@@ -113,61 +142,36 @@
     align-items: center;
     gap: 1.25rem;
     padding: 1.25rem;
-    border: 1px solid var(--color-card-border);
+    border: 1.5px solid var(--color-card-border);
     border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.5);
+    background: white;
     cursor: pointer;
     transition: all var(--transition-normal);
     position: relative;
     overflow: hidden;
   }
 
-  .account-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.2) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    transform: translateX(-100%);
-    transition: transform 0.6s ease-in-out;
-  }
-
-  .account-card:hover::after {
-    transform: translateX(100%);
-  }
-
   .account-card:hover {
     transform: translateY(-2px);
-    background: white;
     box-shadow: var(--shadow-md);
-    border-color: var(--color-primary-light);
+    border-color: var(--color-accent);
   }
 
   .avatar-container {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: var(--radius-sm);
     display: grid;
     place-items: center;
-    font-weight: 800;
-    font-family: var(--font-heading);
-    font-size: 1.1rem;
+    font-size: 1.5rem;
+    background: var(--color-accent-light);
     flex-shrink: 0;
-    transition: transform var(--transition-normal);
-  }
-
-  .account-card:hover .avatar-container {
-    transform: scale(1.05) rotate(5deg);
   }
 
   .account-details {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.2rem;
     flex-grow: 1;
   }
 
@@ -177,74 +181,50 @@
     font-weight: 700;
   }
 
+  .email-sub {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+  }
+
+  .role-badges {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+  }
+
   .role-badge {
-    align-self: flex-start;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.05em;
-    padding: 0.2rem 0.6rem;
+    padding: 0.15rem 0.55rem;
     border-radius: 999px;
+    text-transform: uppercase;
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+  }
+
+  .role-badge.admin {
+    background: hsl(265, 80%, 94%);
+    color: hsl(265, 75%, 35%);
+  }
+  .role-badge.facilitator {
+    background: hsl(172, 60%, 90%);
+    color: hsl(172, 75%, 25%);
+  }
+  .role-badge.learner {
+    background: hsl(200, 80%, 90%);
+    color: hsl(200, 80%, 30%);
   }
 
   .arrow {
     color: var(--color-text-muted);
-    opacity: 0;
-    transform: translateX(-10px);
-    transition: all var(--transition-normal);
+    opacity: 0.5;
+    transition: all var(--transition-fast);
   }
 
   .account-card:hover .arrow {
     opacity: 1;
-    transform: translateX(0);
     color: var(--color-accent);
-  }
-
-  /* Role Specific Themes */
-  .admin .avatar-container {
-    background: hsl(265, 80%, 94%);
-    color: hsl(265, 75%, 45%);
-    border: 1.5px solid hsl(265, 80%, 86%);
-  }
-
-  .admin .role-badge {
-    background: hsl(265, 80%, 94%);
-    color: hsl(265, 75%, 45%);
-  }
-
-  .admin:hover {
-    border-color: hsl(265, 70%, 75%);
-    box-shadow: 0 8px 20px hsla(265, 70%, 45%, 0.08);
-  }
-
-  .facilitator .avatar-container {
-    background: hsl(172, 60%, 92%);
-    color: hsl(172, 75%, 32%);
-    border: 1.5px solid hsl(172, 60%, 82%);
-  }
-
-  .facilitator .role-badge {
-    background: hsl(172, 60%, 92%);
-    color: hsl(172, 75%, 32%);
-  }
-
-  .facilitator:hover {
-    border-color: hsl(172, 70%, 50%);
-    box-shadow: 0 8px 20px hsla(172, 70%, 32%, 0.08);
-  }
-
-  .learner .avatar-container {
-    background: hsl(200, 80%, 93%);
-    color: hsl(200, 80%, 38%);
-    border: 1.5px solid hsl(200, 80%, 84%);
-  }
-
-  .learner .role-badge {
-    background: hsl(200, 80%, 93%);
-    color: hsl(200, 80%, 38%);
-  }
-
-  .learner:hover {
-    border-color: hsl(200, 70%, 60%);
-    box-shadow: 0 8px 20px hsla(200, 70%, 38%, 0.08);
+    transform: translateX(4px);
   }
 </style>
