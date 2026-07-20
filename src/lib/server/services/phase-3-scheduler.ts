@@ -14,6 +14,10 @@ import {
   retryAt,
   shouldSuppressStaleOutreach,
 } from '../../domain/phase-3';
+import {
+  resolvePermittedLearnerChannel,
+  type AutomatedLearnerChannel,
+} from '../../domain/communication-preferences';
 import { programDateTime } from '../../domain/module-2';
 import type { AttendanceSheetPort } from '../integrations/contracts';
 import { reconcileSheetSession } from './phase-3-reconciliation';
@@ -245,7 +249,16 @@ async function missingLearners(
       cohort: { sessions: { some: { id: sessionId } } },
       submissions: { none: { sessionId, type } },
     },
-    select: { id: true, externalId: true, preferredChannel: true, slackMemberId: true },
+    select: {
+      id: true,
+      externalId: true,
+      preferredChannel: true,
+      slackMemberId: true,
+      communicationPreferences: {
+        where: { channel: { in: ['EMAIL', 'SLACK'] } },
+        select: { channel: true, enabled: true },
+      },
+    },
   });
   const eligible: typeof learners = [];
   for (const learner of learners) {
@@ -364,17 +377,33 @@ export async function executeAutomationJob(
           select: { key: true, version: true },
         })
       : null;
-    const operations = plannedLearners.map((learner) => ({
-      learnerReference: learner.externalId,
-      trigger: job.type,
-      primaryChannel: learner.preferredChannel ?? (learner.slackMemberId ? 'SLACK' : 'EMAIL'),
-      recipientCategory: 'learner',
-      templateKey: template?.key ?? templateKey,
-      templateVersion: template?.version ?? null,
-      teamCallTask: ['LATE_EVALUATION', 'NO_CALL_NO_SHOW_EVALUATION'].includes(job.type),
-      programDirectorEscalation: job.type === 'NO_CALL_NO_SHOW_EVALUATION',
-      proposedSheetWrite: null,
-    }));
+    const operations = plannedLearners.map((learner) => {
+      const enabledChannels = new Set<AutomatedLearnerChannel>(['EMAIL', 'SLACK']);
+      for (const preference of learner.communicationPreferences) {
+        if (!preference.enabled)
+          enabledChannels.delete(preference.channel as AutomatedLearnerChannel);
+      }
+      const preferredChannel = ['EMAIL', 'SLACK'].includes(learner.preferredChannel ?? '')
+        ? (learner.preferredChannel as AutomatedLearnerChannel)
+        : null;
+      const primaryChannel = resolvePermittedLearnerChannel({
+        preferredChannel,
+        slackAvailable: Boolean(learner.slackMemberId),
+        enabledChannels,
+      });
+      return {
+        learnerReference: learner.externalId,
+        trigger: job.type,
+        primaryChannel,
+        learnerMessageSuppressed: primaryChannel === null,
+        recipientCategory: 'learner',
+        templateKey: template?.key ?? templateKey,
+        templateVersion: template?.version ?? null,
+        teamCallTask: ['LATE_EVALUATION', 'NO_CALL_NO_SHOW_EVALUATION'].includes(job.type),
+        programDirectorEscalation: job.type === 'NO_CALL_NO_SHOW_EVALUATION',
+        proposedSheetWrite: null,
+      };
+    });
     await database.auditEvent.create({
       data: {
         eventType: 'automation.dry_run.planned',

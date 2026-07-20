@@ -155,14 +155,14 @@ Scope: LiftOff Program Cohort 3 MVP
 
 ### DD-009: Calendar, channels, and accommodation controls
 
-**Status:** Approved with compliance validation pending  
+**Status:** Approved; Gate 7 compliance review completed 2026-07-20
 **Decision:** Use `America/New_York`, the United States federal holiday calendar, and admin-configured blackout dates. MVP channels are program-provided Slack/email and human calls; SMS and automated calling are excluded. Facilitators may apply audited temporary pauses, while admins approve continuing accommodations or lasting rule changes.  
 **Rationale:** A configurable calendar and pause mechanism prevents inappropriate outreach and supports reasonable learner circumstances.  
 **Consequences:** Learner consent, contact hours, privacy duties, and jurisdiction-specific requirements must be confirmed before production. Accommodation requests do not change rules until authorized.
 
 ### DD-010: Access and retention
 
-**Status:** Approved with policy validation pending  
+**Status:** Approved; Gate 7 policy validation completed 2026-07-20
 **Decision:** Admins and facilitators may edit templates; other users have read-only template access. At cohort completion, transactionally archive active incident records and clear the active table. Three years later, prompt admins to review permanent deletion; never delete automatically.  
 **Rationale:** Operational data stays manageable while audit history is retained for an agreed review period.  
 **Consequences:** Preserve identifiers and relationships during archival. Access, archive, review, holds, and deletion decisions require audit records and applicable-policy validation.
@@ -189,7 +189,7 @@ These items are not unresolved product decisions; they are evidence still requir
 - Validate `beaconlearning.me` assignment/payment access and stable learner mapping.
 - Validate Slack app scopes, student identity mapping, event delivery, reactions/comments, and team/Program Director groups.
 - Validate Resend domain, sender, recipient groups, environment separation, and delivery events.
-- Confirm student-data, privacy, consent, permitted-contact-hour, retention, and deletion requirements.
+- Publish and validate the approved privacy notice and communication-preference enforcement in the deployed release candidate before Gate 10.
 - Map logical roles to actual identity-provider users and groups.
 - Collect the two-week operational baseline and review provisional numeric targets.
 - Verify integration failure, retry, reconciliation, monitoring, and rollback behavior in UAT.
@@ -214,3 +214,10 @@ These items are not unresolved product decisions; they are evidence still requir
 **Decision:** Run authoritative scheduling and synchronization in a dedicated LiftOff TypeScript worker under pinned Docker Compose, not n8n. Use durable idempotent jobs and cohort modes `disabled`, `dry_run`, and `active`. Evaluate attendance at the approved exact times, reconcile the Sheet at 11:00 AM and 3:15 PM, and use bounded pre-trigger reads when same-day Sheet submissions are possible.  
 **Rationale:** The project already contains the typed attendance rules, adapters, Prisma model, and tests. Keeping authoritative workflow logic in the same codebase avoids duplicating policy in a second workflow runtime while preserving restart recovery and testability.  
 **Consequences:** n8n may be evaluated later for non-authoritative operational workflows only. No production deployment, provider activation, real message, or live Sheet write is authorized by this decision.
+
+### DD-016: Learner automated-communications choice
+
+**Status:** Approved and implemented locally 2026-07-20; migration and deployment pending
+**Decision:** Cohort 3 learners may stop or resume automated attendance email, automated Slack messages, or both through an authenticated form. Suppression takes effect when recorded, is rechecked immediately before provider contact, does not change attendance records, and does not suppress necessary human staff follow-up or internal staff workflows. Automated learner email includes a stable authenticated preference-management link without a bearer token or learner identifier in the URL. An administrator may record an equivalent learner request and may correct a preference only with a reason and audit event.
+**Rationale:** Communication choice should be easy to exercise without weakening attendance authority, requiring sensitive explanations, or conflating automated outreach with human program support.
+**Consequences:** Add durable per-channel preference storage, learner self-service, worker pre-send enforcement, email-template links, admin correction auditing, and sanitized acceptance tests before active learner outreach. Suppressed messages are not failures and are never backfilled after resumption. The Gate 7 learner notice is approved. Gate 10 requires the committed migration, published notice, and deployed exact pre-send enforcement proof before active outreach.
