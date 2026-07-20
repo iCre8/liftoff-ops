@@ -1,0 +1,35 @@
+SLACK_MEMBER_ID=U07FXFNC03C
+SLACK_CHANNEL_ID=C0BJKA7GRSQ
+SLACK_EVENT_SUBSCRIPTION_URL=https://liftoff-ops-uat.vercel.app/webhooks/slack?x-vercel-protection-bypass=XlXyHmZ2uhbO9nVmeUXiM2NWwnzdHpFF
+SLACK_SIGNING_SECRET=a58f1961fa019c31fb31323d838606e1
+VERCEL_DEPLOYMENT_PROTECTION_SLACK=XlXyHmZ2uhbO9nVmeUXiM2NWwnzdHpFF
+VERCEL_DEPLOYMENT_PROTECTION_RESEND=GDSDd4jYvJ4FFHbYORGfUVorxM9hGfQ6
+
+NEON_UAT_DATABASE_URL=# keep Neon credentials secure: do not expose them to client-side code
+
+DATABASE_URL='postgresql://neondb_owner:npg_P7suBXRzA4eS@ep-divine-cake-ae1aro0y-pooler.c-2.us-east-2.aws.neon.tech/liftoff_dev_db?sslmode=require&channel_binding=require'
+
+RESEND_API_KEY=re_AnR5Dq11_PUF1owF3MHAofFfBqckUnrGJ
+RESEND_BYPASS_URL=https://liftoff-ops-uat.vercel.app/webhooks/resend?x-vercel-protection-bypass=GDSDd4jYvJ4FFHbYORGfUVorxM9hGfQ6
+RESEND_WEBHOOK_SIGNING_SECRET=whsec_CWVHBX7h5Qp4e9plSM3ojQKR1sSw2cXu
+
+---
+install -d -m 700 /home/s4developer/.config/liftoff
+
+read -rsp "Slack bot token: " liftoff_secret
+printf '%s' "$liftoff_secret" > /home/s4developer/.config/liftoff/slack-uat-bot-token
+unset liftoff_secret
+
+read -rsp "Slack signing secret: " liftoff_secret
+printf '%s' "$liftoff_secret" > /home/s4developer/.config/liftoff/slack-uat-signing-secret
+unset liftoff_secret
+
+read -rp "Your Slack member ID: " liftoff_value
+printf '%s' "$liftoff_value" > /home/s4developer/.config/liftoff/slack-uat-staff-member-ids
+unset liftoff_value
+
+read -rp "Private channel ID: " liftoff_value
+printf '%s' "$liftoff_value" > /home/s4developer/.config/liftoff/slack-uat-staff-channel-id
+unset liftoff_value
+
+chmod 600 /home/s4developer/.config/liftoff/slack-uat-*
