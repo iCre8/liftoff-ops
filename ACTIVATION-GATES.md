@@ -51,9 +51,9 @@ The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_
 ## Gate status checklist
 
 - [x] Gate 1 — Column D learner identities corrected and validated
-- [ ] Gate 2 — Google Workspace OAuth client created; real organization sign-in verified
+- [x] Gate 2 — Google Workspace OAuth client created; real organization sign-in verified
 - [x] Gate 3 — Neon production database branch and migration authorization
-- [ ] Gate 4 — Hosting: Vercel web app + worker runtime, GitHub environments
+- [x] Gate 4 — Hosting: Vercel web app + worker runtime, GitHub environments
 - [ ] Gate 5 — Slack non-production validation
 - [ ] Gate 6 — Resend non-production validation
 - [ ] Gate 7 — Privacy and compliance review recorded
@@ -150,7 +150,7 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 ---
 
-## Gate 4 — Hosting: Vercel web, worker runtime, GitHub environments [IN PROGRESS]
+## Gate 4 — Hosting: Vercel web, worker runtime, GitHub environments [CLEARED]
 
 **Why this gate exists.** The locked architecture is: SvelteKit web app on Vercel (`svelte.config.js` selects the Vercel adapter by default; `DEPLOY_TARGET=node` selects the Node adapter for containers), the durable worker under pinned Docker Compose on a DigitalOcean droplet, and Postgres on Neon (Gate 3). CI runs on pushes to `uat` and `main`; the deployment workflow must preserve the Preview → UAT → Production promotion path.
 
@@ -169,7 +169,7 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 **Steps — worker.**
 
-1. **Approved, blocked on DigitalOcean CLI authentication:** provision an Ubuntu 24.04 LTS Basic droplet in NYC3 with two shared vCPUs, 2 GiB RAM, monitoring, no UAT backups, and the dedicated LiftOff SSH key. The saved CLI context has no usable access token, so no droplet has been created. Enforce key-only SSH and use a non-root sudo operator account.
+1. **Complete:** an Ubuntu 24.04 LTS Basic droplet runs in NYC3 with two shared vCPUs, 2 GiB RAM, monitoring, no UAT backups, and the dedicated LiftOff SSH key. A cloud firewall restricts SSH to the approved administrator source, key-only authentication is enforced, root SSH is disabled, and the non-root `liftoff` operator has verified sudo access.
 2. Copy nothing from the worktree except what `git clone` of the pinned release commit provides. Create owner-only secret files under `~/.config/liftoff/secrets/` (directory `0700`, files `0600`) for the dev/UAT pooled database URL, Google service-account JSON key, and private Sheet mapping. Store workbook/worksheet identifiers only in the owner-only deployment environment file.
 3. Start only the worker service; it must not start local PostgreSQL:
 
@@ -181,7 +181,7 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 **Google Sheets credential decision — approved and verified for UAT.** A dedicated UAT service account and owner-only JSON key have been created, and the exact copied dev/UAT workbook grants that identity Viewer access. A bounded read-only proof scanned workbook metadata without requesting cell values or printing workbook identifiers. The key must rotate quarterly. Production requires a separately scoped identity and approval.
 
-**Verification.** Local and hosted web evidence is complete: 76 tests, zero diagnostics, web and worker builds, Nix flake evaluation, Compose rendering, immutable container build, clean GitHub CI, GitHub-gated Vercel prebuild/deploy, active deployment protection, protected `/health`, the configured OAuth initiation redirect, and a real corporate sign-in all passed. The UAT-only administrator command passed seven fail-closed/idempotency tests, created the approved active corporate global admin atomically without logging an identifying value, and returned preserve/preserve on a second apply. Count-only database verification confirmed one linked corporate identity, one completed sign-in, and one active hashed session. The dedicated UAT service account passed a bounded metadata-only read proof against the exact copied workbook. A temporary worker heartbeat against dev/UAT Neon also passed locally with external effects disabled. Gate closure now requires only authenticated DigitalOcean provisioning and a healthy droplet worker heartbeat. Gate status confidence: **92%**.
+**Verification.** Local and hosted web evidence is complete: 76 tests, zero diagnostics, web and worker builds, Nix flake evaluation, Compose rendering, immutable container build, clean GitHub CI, GitHub-gated Vercel prebuild/deploy, active deployment protection, protected `/health`, the configured OAuth initiation redirect, and a real corporate sign-in all passed. The UAT-only administrator command passed seven fail-closed/idempotency tests, created the approved active corporate global admin atomically without logging an identifying value, and returned preserve/preserve on a second apply. Count-only database verification confirmed one linked corporate identity, one completed sign-in, and one active hashed session. The dedicated UAT service account passed a bounded metadata-only read proof against the exact copied workbook. The DigitalOcean worker was cloned at the exact protected UAT commit through a read-only deploy key, built from the digest-pinned image, and reached healthy with a non-empty tmpfs heartbeat, zero restarts, readable mounted files, and `PHASE3_EXTERNAL_EFFECTS=false`. No local PostgreSQL service, external message, or Sheet write was started. Gate status confidence: **100%**.
 
 **Unblocks:** the Jul 24 UAT pilot and everything after it.
 

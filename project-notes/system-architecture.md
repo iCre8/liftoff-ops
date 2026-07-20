@@ -1,6 +1,6 @@
 # LiftOff system architecture — a Back of the Napkin view
 
-Status: Architecture baseline with implementation boundaries  
+Status: UAT architecture operational; production and external effects gated
 Recorded: 2026-07-18  
 Scope: Cohort 3 local development, UAT, production target, and core runtime sequences
 
@@ -157,7 +157,7 @@ bounded read-only Sheet    ───── explicitly configured local worker
 
 ## 3. Where — physical deployment target
 
-The map distinguishes the approved target from what is operational today. The web tier targets Vercel, the durable worker targets DigitalOcean, and Postgres targets Neon. External-effect paths remain dashed until their code wiring, provider validation, compliance review, and activation gates are complete.
+The UAT web tier is operational on Vercel, the durable worker is healthy on DigitalOcean, and both use the approved dev/UAT Neon target. Production and external-effect paths remain dashed until their separate configuration, validation, compliance review, and activation gates are complete.
 
 ```mermaid
 flowchart TB
@@ -177,7 +177,7 @@ flowchart TB
     end
 
     subgraph neon["Neon"]
-        uatdb[("UAT Postgres")]
+        uatdb[("Dev/UAT Postgres")]
         proddb[("Production Postgres")]
     end
 
@@ -198,11 +198,11 @@ flowchart TB
     users --> web
     web <--> google
     web --> uatdb
-    web --> proddb
+    web -. "production gate" .-> proddb
     envs --> web
-    envs -. "approved worker release" .-> compose
+    envs -. "worker promotion workflow pending" .-> compose
     worker --> uatdb
-    worker --> proddb
+    worker -. "production gate" .-> proddb
     worker --> sheet
     worker -. "gated outbound" .-> slack
     worker -. "gated outbound" .-> resend
@@ -225,10 +225,49 @@ flowchart TB
 
 ### Physical deployment decisions still open
 
-1. Production identity for unattended Google Sheets access is not approved. Development ADC must not be reused. The current key-versus-workload-identity conflict must be resolved and logged as a design decision.
+1. Production identity for unattended Google Sheets access is not approved. The dedicated UAT key cannot be reused.
 2. Active worker dependencies for Slack, Resend, staff tasks, and writable Sheet outcomes still require implementation and end-to-end tests.
-3. GitHub deployment workflows and environment promotion are target architecture; the current workflow validates and builds but does not deploy.
-4. UAT and production must use separate Neon branches, provider credentials, recipient mappings, and approvals.
+3. GitHub-gated Vercel UAT deployment is operational. Production web promotion and automated DigitalOcean worker promotion remain gated.
+4. Dev/UAT and Production Neon targets are verified as separate. Production runtime credentials and activation remain unconfigured.
+
+### Configuration boundary — same names, different homes
+
+This picture answers the operational configuration question: what is committed, what is injected, and what remains empty.
+
+```mermaid
+flowchart LR
+    repo["Repository\ncode + variable names + lockfiles"]
+    ci["GitHub UAT gate\nVercel deployment credentials"]
+    preview["Vercel Preview/UAT\nweb runtime variables"]
+    files["DigitalOcean owner-only files\ndatabase + Google key + mapping"]
+    image["Digest-pinned worker image\nno secrets"]
+    worker["UAT worker\nexternal effects false"]
+    prod["Production gate\nsecrets and deployment intentionally absent"]
+    prodWeb["Production web\nnot deployed"]
+    prodWorker["Production worker\nnot deployed"]
+
+    repo --> ci
+    ci --> preview
+    repo --> image
+    image --> worker
+    files --> worker
+    repo -. "reviewed promotion" .-> prod
+    prod -. "separate secrets" .-> prodWeb
+    prod -. "separate identity" .-> prodWorker
+
+    classDef source fill:#dcecff,stroke:#175a9c,stroke-width:2px,color:#111;
+    classDef secret fill:#fff4cc,stroke:#8a6d00,stroke-width:2px,color:#111;
+    classDef gate fill:#fce8e6,stroke:#b42318,stroke-width:2px,stroke-dasharray:6 4,color:#111;
+    class repo,ci,image,preview,worker source;
+    class files secret;
+    class prod,prodWeb,prodWorker gate;
+```
+
+| Environment | Web configuration                                 | Worker configuration                                   | Data target                               | Current state                  |
+| ----------- | ------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------- | ------------------------------ |
+| Local       | Ignored local paths and sanitized auth            | Owner-only files; external effects false               | Local Postgres or approved dev/UAT Neon   | Development and bounded proofs |
+| UAT         | Vercel Preview variables behind GitHub `uat` gate | DigitalOcean `0600` files behind hardened SSH/firewall | Shared dev/UAT Neon by recorded exception | Operational and healthy        |
+| Production  | Intentionally empty until promotion approval      | No production worker identity or files                 | Separate migrated Neon target             | Gated                          |
 
 ## 4. Why — authority and responsibility map
 
@@ -281,7 +320,7 @@ All times are `America/New_York`; inactive days, federal holidays, blackouts, co
 
 ### A. Google Workspace sign-in
 
-Implemented locally at the contract level; real organization OAuth validation is an activation gate.
+Implemented and verified through a real organization sign-in on the protected UAT alias.
 
 ```mermaid
 sequenceDiagram
@@ -442,7 +481,7 @@ sequenceDiagram
 
 ### F. UAT-to-production promotion
 
-This is the approved delivery sequence. Current CI performs validation and build only; deployment jobs and provider environments are not yet configured.
+This is the approved delivery sequence. GitHub-gated Vercel UAT deployment is operational; production promotion and automated worker delivery remain gated.
 
 ```mermaid
 sequenceDiagram
@@ -470,18 +509,18 @@ sequenceDiagram
 
 ## 7. How much — readiness at a glance
 
-| Slice                          | Local / contract status                  | Physical / production status                                         |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------- |
-| Domain attendance rules        | Implemented and tested                   | Needs UAT evidence                                                   |
-| Learner and staff forms        | Implemented locally                      | Real OAuth and deployed role checks pending                          |
-| Durable scheduling             | Implemented locally                      | Worker host and operational monitoring pending                       |
-| Read-only Sheet reconciliation | Implemented                              | Production identity and workbook validation pending                  |
-| Sheet outcome writes           | Adapter and canary contract tested       | Active worker wiring and production canary pending                   |
-| Slack / Resend adapters        | Contract tested with sanitized fake HTTP | Worker wiring, provider setup, and non-production validation pending |
-| Active incidents and outreach  | Data model and partial operations exist  | End-to-end active execution incomplete                               |
-| Dry-run                        | Implemented                              | Pilot and five staff-reviewed live-cohort days pending               |
-| Deployment promotion           | CI validation/build exists               | UAT/production deployment workflow and gates pending                 |
-| Compliance and activation      | Requirements recorded                    | Review and written go/no-go pending                                  |
+| Slice                          | Local / contract status                   | Physical / production status                                         |
+| ------------------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
+| Domain attendance rules        | Implemented and tested                    | UAT worker healthy; dry-run review still pending                     |
+| Learner and staff forms        | Implemented locally                       | UAT web and real corporate OAuth verified                            |
+| Durable scheduling             | Implemented locally                       | DigitalOcean worker healthy with heartbeat and zero restarts         |
+| Read-only Sheet reconciliation | Implemented                               | UAT identity/workbook verified; Production identity pending          |
+| Sheet outcome writes           | Adapter and canary contract tested        | Active worker wiring and production canary pending                   |
+| Slack / Resend adapters        | Contract tested with sanitized fake HTTP  | Worker wiring, provider setup, and non-production validation pending |
+| Active incidents and outreach  | Data model and partial operations exist   | End-to-end active execution incomplete                               |
+| Dry-run                        | Implemented and safely deployed           | Pilot and five staff-reviewed live-cohort days pending               |
+| Deployment promotion           | CI plus Vercel UAT deployment operational | Production and automated worker promotion pending                    |
+| Compliance and activation      | Requirements recorded                     | Review and written go/no-go pending                                  |
 
 ## 8. Design rules the pictures preserve
 
