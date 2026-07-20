@@ -2,17 +2,80 @@ import { createHash } from 'node:crypto';
 
 import type { AttendanceState, Prisma, PrismaClient, SubmissionType } from '@prisma/client';
 
-import { planSheetRecordReconciliation } from '$lib/domain/phase-3';
-import type {
-  AttendanceSheetPort,
-  AttendanceSheetRecord,
-} from '$lib/server/integrations/contracts';
+import { planSheetRecordReconciliation } from '../../domain/phase-3';
+import type { AttendanceSheetPort, AttendanceSheetRecord } from '../integrations/contracts';
 
 export interface SheetReconciliationSummary {
   recordsRead: number;
   timestampsImported: number;
   attendanceCorrections: number;
   humanReviewItems: number;
+}
+
+export interface SheetReconciliationPreviewSummary {
+  recordsRead: number;
+  timestampsWouldImport: number;
+  attendanceCorrectionsPlanned: number;
+  humanReviewItems: number;
+}
+
+/**
+ * Reads the authoritative Sheet and evaluates the same reconciliation rules as
+ * active mode without changing Postgres or calling the Sheet write API.
+ */
+export async function previewSheetSessionReconciliation(
+  database: PrismaClient,
+  sheet: AttendanceSheetPort,
+  sessionId: string,
+): Promise<SheetReconciliationPreviewSummary> {
+  const session = await database.programSession.findUniqueOrThrow({ where: { id: sessionId } });
+  const records = await sheet.readSession(session.externalId);
+  const summary: SheetReconciliationPreviewSummary = {
+    recordsRead: records.length,
+    timestampsWouldImport: 0,
+    attendanceCorrectionsPlanned: 0,
+    humanReviewItems: 0,
+  };
+
+  for (const record of records) {
+    if (record.sessionExternalId !== session.externalId) {
+      summary.humanReviewItems += 1;
+      continue;
+    }
+    const learner = await database.learner.findUnique({
+      where: {
+        cohortId_externalId: { cohortId: session.cohortId, externalId: record.learnerExternalId },
+      },
+      include: {
+        submissions: { where: { sessionId } },
+        attendanceRecords: { where: { sessionId } },
+      },
+    });
+    if (!learner) {
+      summary.humanReviewItems += 1;
+      continue;
+    }
+    const checkIn = learner.submissions.find((item) => item.type === 'GOALS_CHECK_IN');
+    const exitTicket = learner.submissions.find((item) => item.type === 'EXIT_TICKET');
+    const attendance = learner.attendanceRecords[0];
+    try {
+      const plan = planSheetRecordReconciliation({
+        checkInReleasedAt: session.checkInReleasedAt,
+        existingCheckInAt: checkIn?.submittedAt,
+        existingExitTicketAt: exitTicket?.submittedAt,
+        existingAttendanceState: attendance?.state as never,
+        sheetCheckInAt: record.checkInAt,
+        sheetExitTicketAt: record.exitTicketAt,
+        sheetExcused: record.excused,
+        sheetOutcome: record.outcome,
+      });
+      summary.timestampsWouldImport += plan.timestampChanges;
+      summary.attendanceCorrectionsPlanned += Number(plan.attendanceChanged);
+    } catch {
+      summary.humanReviewItems += 1;
+    }
+  }
+  return summary;
 }
 
 function reconciliationKey(parts: readonly string[]): string {

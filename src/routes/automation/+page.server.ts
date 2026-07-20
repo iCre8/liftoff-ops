@@ -6,6 +6,7 @@ import { requireAccount } from '$lib/server/auth';
 import { readRequiredSecret } from '$lib/server/config/secrets';
 import { getDatabase } from '$lib/server/db';
 import { SlackDirectory } from '$lib/server/integrations/slack-directory';
+import { assessDryRunDayEvidence } from '$lib/server/services/dry-run-evidence';
 import {
   archiveCohortIncidents,
   restoreCohortIncidents,
@@ -477,6 +478,29 @@ export const actions = {
       unresolvedMappings < 0
     )
       return fail(400, { message: 'Valid dry-run evidence is required' });
+    const cohort = await getDatabase().cohort.findUnique({ where: { id: cohortId } });
+    if (!cohort || cohort.automationMode !== 'DRY_RUN')
+      return fail(409, { message: 'The cohort must be in dry-run mode during review' });
+    const session = await getDatabase().programSession.findUnique({
+      where: { cohortId_sessionDate: { cohortId, sessionDate: date } },
+    });
+    if (!session) return fail(409, { message: 'No program session exists for this dry-run date' });
+    const jobs = await getDatabase().automationJob.findMany({
+      where: { cohortId, sessionId: session.id },
+      select: { id: true, type: true, status: true, completedAt: true, payload: true },
+    });
+    const audits = await getDatabase().auditEvent.findMany({
+      where: {
+        eventType: 'automation.dry_run.planned',
+        entityType: 'AutomationJob',
+        entityId: { in: jobs.map((job) => job.id) },
+      },
+      select: { entityId: true, payload: true },
+    });
+    const evidence = assessDryRunDayEvidence(jobs, audits);
+    if (!evidence.complete) return fail(409, { message: evidence.reason });
+    if (duplicateCount > 0 || unresolvedMappings > 0)
+      return fail(409, { message: 'Staff observations must be resolved before completion' });
     await getDatabase().dryRunDay.upsert({
       where: { cohortId_date: { cohortId, date } },
       create: {
@@ -494,6 +518,20 @@ export const actions = {
         reviewedBy: account.id,
         duplicateCount,
         unresolvedMappings,
+      },
+    });
+    await getDatabase().auditEvent.create({
+      data: {
+        accountId: account.id,
+        eventType: 'automation.dry_run.reviewed',
+        entityType: 'Cohort',
+        entityId: cohortId,
+        payload: {
+          date: date.toISOString().slice(0, 10),
+          completedJobCount: evidence.completedJobCount,
+          externalMessages: 0,
+          externalWrites: 0,
+        },
       },
     });
     return { success: true, message: 'Dry-run day completed and reviewed' };

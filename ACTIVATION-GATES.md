@@ -255,18 +255,22 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 ---
 
-## Gate 8 — Dry-run evidence [PENDING]
+## Gate 8 — Dry-run evidence [IN PROGRESS — TIMED EVIDENCE PENDING]
 
 **Why this gate exists.** Activation requires five complete active dry-run days and at least one formal staff review, because dry-run is the only way to observe the exact planned operations — trigger, learner reference, channel, template version, recipient category, proposed Sheet change — with zero external effects. An admin may record an approved exception, but never below one complete day.
 
 **Steps.**
 
-1. **Jul 24 pilot (rehearsal):** cohort in `dry_run` on UAT + local worker, sanitized workbook, staff observing. Walk the full day: 9:25 late evaluation, 10:45 no-call/no-show transition, 11:00 reconciliation, 3:00 exit reminder, 3:15 final reconciliation and unresolved dashboard, 4:00 annotation cutoff. Record observations in the automation workspace's dry-run review.
+1. **Jul 24 pilot (rehearsal):** cohort in `dry_run` on Vercel UAT + the DigitalOcean UAT worker, copied UAT workbook, staff observing. Walk the full day: 9:25 late evaluation, 10:45 no-call/no-show transition, 11:00 reconciliation, 3:00 exit reminder, 3:15 final reconciliation and unresolved dashboard, 4:00 annotation cutoff. Record observations in the automation workspace's dry-run review.
 2. Fix anything the pilot surfaces; repeat locally as needed.
 3. **Sep 8–14:** five complete dry-run days against the real Cohort 3 workbook and roster (Gates 1–4 re-verified against production identifiers first).
 4. Hold the formal staff review; record baseline staff measurements (outreach-coordination minutes, incidents handled, unresolved items) for the before/after comparison.
 
 **Verification.** Dry-run produces the same planned operations active mode would execute, with no provider call and no Sheet write, across all five days.
+
+**Readiness verified 2026-07-20.** The rehearsal path now performs bounded authoritative Sheet reads through the read-only adapter while planning reconciliation changes without mutating Postgres attendance state or calling the Sheet write API. A staff review can no longer certify a date from manual counts alone: the server requires all nine scheduled jobs, one zero-effect audit per job, dry-run execution mode, zero duplicates, and zero unresolved Sheet mappings. Sanitized regressions prove the preview cannot invoke a Sheet write or a database transaction. Full verification passed with 27 test files and 103 tests, zero Svelte/TypeScript diagnostics, both production builds, and Compose rendering. The timed July 24 rehearsal and September five-day evidence are still pending; no UAT mode change, deployment, provider call, or Sheet write was performed by this preparation.
+
+**Operator reference:** [Gate 8 dry-run rehearsal runbook](project-notes/gate-8-dry-run-runbook.md).
 
 ---
 

@@ -20,7 +20,7 @@ import {
 } from '../../domain/communication-preferences';
 import { programDateTime } from '../../domain/module-2';
 import type { AttendanceSheetPort } from '../integrations/contracts';
-import { reconcileSheetSession } from './phase-3-reconciliation';
+import { previewSheetSessionReconciliation, reconcileSheetSession } from './phase-3-reconciliation';
 
 export interface Phase3WorkerDependencies {
   attendanceSheet?: AttendanceSheetPort;
@@ -362,6 +362,22 @@ export async function executeAutomationJob(
   const plannedCount = plannedLearners.length;
 
   if (context.cohort.automationMode === 'DRY_RUN') {
+    let reconciliationPreview: Prisma.InputJsonObject | null = null;
+    if (['PRE_TRIGGER_RECONCILIATION', 'SHEET_RECONCILIATION'].includes(job.type)) {
+      if (!context.session || !dependencies.attendanceSheet) {
+        await finishJob(database, job.id, 'HUMAN_REVIEW', now, {
+          reason: 'sheet_adapter_unconfigured',
+          plannedType: job.type,
+        });
+        return;
+      }
+      const preview = await previewSheetSessionReconciliation(
+        database,
+        dependencies.attendanceSheet,
+        context.session.id,
+      );
+      reconciliationPreview = { ...preview };
+    }
     const templateKey =
       job.type === 'LATE_EVALUATION'
         ? 'late'
@@ -413,10 +429,8 @@ export async function executeAutomationJob(
           type: job.type,
           plannedCount,
           operations,
-          wouldReadAuthoritativeSheet: [
-            'PRE_TRIGGER_RECONCILIATION',
-            'SHEET_RECONCILIATION',
-          ].includes(job.type),
+          authoritativeSheetRead: reconciliationPreview !== null,
+          reconciliationPreview,
           externalWrites: 0,
           externalMessages: 0,
         },
@@ -427,6 +441,8 @@ export async function executeAutomationJob(
       plannedCount,
       operations,
       executionMode: 'DRY_RUN',
+      authoritativeSheetRead: reconciliationPreview !== null,
+      reconciliationPreview,
     });
     return;
   }
