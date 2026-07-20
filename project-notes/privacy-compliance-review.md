@@ -57,7 +57,7 @@ Approved artifacts:
 | Retention                        | Cohort archive creates 12 category reviews due three calendar years later                              | Pass locally            |
 | Holds                            | Bounded reason and future review date required; action is audited                                      | Pass locally            |
 | Provider events                  | Signature checked; only bounded event metadata retained                                                | Pass                    |
-| External effects                 | Cohort remains disabled; dev/UAT migration applied; controls undeployed                                | Safe boundary preserved |
+| External effects                 | Cohort remains disabled; dev/UAT migration and controls deployed inactive                              | Safe boundary preserved |
 
 ## Data categories under three-year review
 
@@ -89,9 +89,9 @@ Permanent deletion remains disabled. A later deletion workflow must refuse delet
 Gate 7 is the recorded privacy/compliance review and is cleared. Clearance does not authorize external effects. Before active learner outreach:
 
 1. **Complete:** apply the committed Gate 7 migration to the confirmed dev/UAT target under separate migration authorization.
-2. Deploy the reviewed artifact to UAT and verify the authenticated notice and preference route.
+2. **Complete:** deploy the reviewed artifact to UAT and verify the authenticated notice and preference route.
 3. Prove a stored opt-out suppresses the exact active delivery path immediately before provider contact.
-4. Configure the stable environment-specific `LEARNER_COMMUNICATION_PREFERENCES_URL`.
+4. **Complete for UAT:** configure the stable environment-specific preference URL.
 5. Publish the approved notice in all three locations and retain count-only approval/publication evidence.
 6. Repeat the enforcement proof in the production release candidate before Gate 10 approval.
 
@@ -106,7 +106,7 @@ Gate 7 is the recorded privacy/compliance review and is cleared. Clearance does 
 - Policy-evidence confidence: **95%**
 - Overall Gate 7 confidence: **96%**
 
-The residual uncertainty reflects the stated legal-scope assumptions and the intentionally undeployed controls, not a known defect in the local implementation.
+The residual uncertainty reflects the stated legal-scope assumptions and the inactive UAT controls that still require exact active-path proof, not a known defect in the local implementation.
 
 ## Authoritative starting references
 

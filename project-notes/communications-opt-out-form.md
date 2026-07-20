@@ -1,6 +1,6 @@
 # Communications opt-out form — implementation contract
 
-Status: Approved and implemented; dev/UAT migration applied, deployment pending
+Status: Approved, migrated, and deployed to UAT with external effects disabled
 Recorded: 2026-07-20
 
 ## Purpose
@@ -68,4 +68,4 @@ Every automated learner email should include a **Manage attendance communication
 
 ## Activation boundary
 
-The form, durable storage model, preference-aware zero-provider-call service, dry-run channel suppression, and email preference link are implemented and tested. The migration is applied to dev/UAT, while the controls remain intentionally undeployed. Gate 10 must verify the migration and exact deployed active delivery wiring before automated learner outreach is enabled.
+The form, durable storage model, preference-aware zero-provider-call service, dry-run channel suppression, and email preference link are implemented and tested. The migration and controls are deployed to dev/UAT with external effects disabled. Gate 10 must verify the exact active delivery wiring before automated learner outreach is enabled.
