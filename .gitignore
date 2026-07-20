@@ -4,6 +4,8 @@ build/
 worker-build/
 node_modules/
 coverage/
+scratch-pad
+ll
 
 .env
 .env.*
