@@ -187,19 +187,21 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 ---
 
-## Gate 5 — Slack non-production validation [OPEN]
+## Gate 5 — Slack non-production validation [IN PROGRESS — LOCAL SAFEGUARDS READY]
 
-**Why this gate exists.** Learner Slack outreach is a private bot DM resolved through an admin-previewed mapping from provisioned company email to stable Slack member ID. Webhooks are verified against the unmodified raw body with a five-minute replay window and constant-time comparison, and provider event IDs are deduplicated in Postgres. All of this is implemented and tested against fakes; no real Slack app exists. The adapter fails closed while `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, and `SLACK_STAFF_MEMBER_IDS` (each also accepted as `<NAME>_FILE`) are absent — so simply not configuring them keeps Slack off.
+**Why this gate exists.** Learner Slack outreach is a private bot DM resolved through an admin-previewed mapping from provisioned company email to stable Slack member ID. Webhooks are verified against the unmodified raw body with a five-minute replay window and constant-time comparison, and provider event IDs are deduplicated in Postgres. The admin workflow now re-resolves every email before an atomic, individually confirmed mapping update. Acknowledgments must come from an allowlisted staff member in one configured staff channel. No real Slack app is configured yet. The integration fails closed while `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_STAFF_MEMBER_IDS`, or `SLACK_STAFF_CHANNEL_ID` (each also accepted as `<NAME>_FILE`) is absent.
 
 **Steps.**
 
-1. Create a Slack app in the workspace (or a sandbox workspace first). Grant least-privilege bot scopes only: `chat:write`, `im:write`, `users:read.email` (for the email → member-ID preview), `reactions:read`, and event subscriptions for `reaction_added` and `message` in the staff channel thread context. Do not grant workspace-wide read scopes.
+1. Create a Slack app in the workspace. Grant least-privilege bot scopes only: `chat:write`, `users:read`, `users:read.email`, `reactions:read`, and `groups:history`. Subscribe only to `reaction_added` and `message.groups`. Slack requires `users:read` with `users:read.email`, and a private-channel thread reply requires `groups:history`. Invite the bot only to the dedicated private UAT staff channel; do not grant public-channel or workspace-wide message-history scopes.
 2. Record the signing secret and bot token in owner-only secret files.
-3. Point the app's event subscription URL at `https://<uat-domain>/webhooks/slack` and complete Slack's URL verification.
-4. Build the staff member-ID list (`SLACK_STAFF_MEMBER_IDS_FILE`): stable member IDs, not display names, because display names change and IDs do not.
+3. Create a dedicated Vercel Protection Bypass for Automation secret for Slack. Point the app's event subscription URL at `https://<uat-domain>/webhooks/slack?x-vercel-protection-bypass=<secret>` and complete URL verification. Treat the complete URL as sensitive because the query parameter bypasses Vercel Authentication; Slack request signatures still protect the application endpoint.
+4. Build the staff member-ID list (`SLACK_STAFF_MEMBER_IDS_FILE`) and record the private staff channel ID (`SLACK_STAFF_CHANNEL_ID_FILE`). Use stable IDs, not names.
 5. Create the non-production team channel; add the bot.
 6. In the admin workspace, preview the email → member-ID learner mapping and confirm each resolution before it is used.
-7. With the cohort still in `dry_run`, verify signed event delivery, dedup on redelivery, and staff-reaction acknowledgment handling. Send real DMs only to staff test accounts, never to a learner, until Gate 10.
+7. Run `pnpm slack:validate-uat` for a read-only authentication and allowlist preflight. After explicit authorization, run `pnpm slack:validate-uat -- --send-staff-canary` once; it refuses a second send while its owner-only receipt exists. With the cohort still in `dry_run`, add one staff reaction and one thread reply, then verify signed delivery and deduplication. Never send to a learner until Gate 10.
+
+**Current evidence.** Local checks pass with 19 test files and 81 sanitized tests. Tests cover signature freshness/tampering, directory normalization and inactive/bot/mismatch rejection, staff/channel acknowledgment boundaries, and loading the validation command under the pinned Node runtime. The owner-only Slack files have mode `0600`. A real bot completed the read-only authentication preflight, and exactly one active human staff account matched the allowlist; no provider identifiers were logged and no message was sent. The admin mapping preview requires every row to be checked, re-resolves the directory, rejects duplicate Slack IDs, updates mappings atomically, and writes a count-only audit event. Hosted secret configuration, webhook verification, real learner mapping review, and the one staff-only canary remain pending. Gate status confidence: **70%**.
 
 **Verification.** Signed webhook accepted, tampered/stale webhook rejected, duplicate event ID ignored, and a staff-authored reaction recorded as an acknowledgment.
 
