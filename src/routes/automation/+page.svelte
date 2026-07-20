@@ -105,6 +105,37 @@
     </section>
     <section>
       <h2>Recipient mapping readiness</h2>
+      {#if data.isAdmin && data.cohorts[0]}
+        <form method="POST" action="?/slackMappingPreview">
+          <select name="cohortId"
+            >{#each data.cohorts as cohort}<option value={cohort.id}>{cohort.name}</option
+              >{/each}</select
+          >
+          <button>Preview Slack mappings</button>
+        </form>
+      {/if}
+      {#if form?.slackMappingPreview}
+        <form method="POST" action="?/slackMappingConfirm">
+          <input type="hidden" name="cohortId" value={form.cohortId} />
+          <ul>
+            {#each form.slackMappingPreview as mapping}
+              <li>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="confirmedLearnerId"
+                    value={mapping.learnerId}
+                    required
+                  />
+                  {mapping.learnerExternalId} → {mapping.slackMemberId}
+                </label>
+              </li>
+            {/each}
+          </ul>
+          <input name="confirmation" placeholder="Type CONFIRM SLACK MAPPINGS" required />
+          <button>Confirm all Slack mappings</button>
+        </form>
+      {/if}
       {#each data.mappingCounts as mapping}
         <p>
           {mapping.verifiedSlackMappings} of {mapping.learners} learners have a stable Slack mapping.

@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 
 import { activationEligibility, validatePause } from '$lib/domain/phase-3';
 import { requireAccount } from '$lib/server/auth';
+import { readRequiredSecret } from '$lib/server/config/secrets';
 import { getDatabase } from '$lib/server/db';
+import { SlackDirectory } from '$lib/server/integrations/slack-directory';
 import {
   archiveCohortIncidents,
   restoreCohortIncidents,
@@ -48,6 +50,34 @@ function authorizedCohortIds(account: ReturnType<typeof staffAccount>) {
 function canAccessCohort(account: ReturnType<typeof staffAccount>, cohortId: string) {
   const cohortIds = authorizedCohortIds(account);
   return cohortIds === null || cohortIds.includes(cohortId);
+}
+
+async function resolveSlackMappings(cohortId: string) {
+  const learners = await getDatabase().learner.findMany({
+    where: { cohortId },
+    select: { id: true, externalId: true },
+    orderBy: { externalId: 'asc' },
+  });
+  if (learners.length === 0) throw new Error('The cohort has no learners to map');
+
+  const directory = new SlackDirectory(readRequiredSecret('SLACK_BOT_TOKEN'));
+  const mappings: Array<{
+    learnerId: string;
+    learnerExternalId: string;
+    slackMemberId: string;
+  }> = [];
+  for (const learner of learners) {
+    const match = await directory.lookupByEmail(learner.externalId);
+    mappings.push({
+      learnerId: learner.id,
+      learnerExternalId: match.normalizedEmail,
+      slackMemberId: match.memberId,
+    });
+  }
+  if (new Set(mappings.map((mapping) => mapping.slackMemberId)).size !== mappings.length) {
+    throw new Error('Slack directory resolution produced duplicate member IDs');
+  }
+  return mappings;
 }
 
 export const load = async ({ locals }) => {
@@ -171,6 +201,74 @@ export const load = async ({ locals }) => {
 };
 
 export const actions = {
+  slackMappingPreview: async ({ request, locals }) => {
+    const account = staffAccount(locals);
+    if (!isAdmin(account)) return fail(403, { message: 'Admin access required' });
+    const cohortId = String((await request.formData()).get('cohortId') ?? '');
+    if (!canAccessCohort(account, cohortId))
+      return fail(403, { message: 'Cohort access required' });
+    try {
+      const slackMappingPreview = await resolveSlackMappings(cohortId);
+      return {
+        success: true,
+        message: `${slackMappingPreview.length} Slack mappings resolved; confirm every row before saving`,
+        cohortId,
+        slackMappingPreview,
+      };
+    } catch (cause) {
+      return fail(409, {
+        message: cause instanceof Error ? cause.message : 'Slack mapping preview failed',
+      });
+    }
+  },
+  slackMappingConfirm: async ({ request, locals }) => {
+    const account = staffAccount(locals);
+    if (!isAdmin(account)) return fail(403, { message: 'Admin access required' });
+    const data = await request.formData();
+    const cohortId = String(data.get('cohortId') ?? '');
+    const confirmation = String(data.get('confirmation') ?? '');
+    const confirmedLearnerIds = new Set(data.getAll('confirmedLearnerId').map(String));
+    if (!canAccessCohort(account, cohortId))
+      return fail(403, { message: 'Cohort access required' });
+    if (confirmation !== 'CONFIRM SLACK MAPPINGS') {
+      return fail(400, { message: 'Type CONFIRM SLACK MAPPINGS to save mappings' });
+    }
+    try {
+      const mappings = await resolveSlackMappings(cohortId);
+      if (
+        confirmedLearnerIds.size !== mappings.length ||
+        mappings.some((mapping) => !confirmedLearnerIds.has(mapping.learnerId))
+      ) {
+        return fail(400, { message: 'Every resolved mapping must be individually confirmed' });
+      }
+      await getDatabase().$transaction(async (transaction) => {
+        for (const mapping of mappings) {
+          await transaction.learner.update({
+            where: { id: mapping.learnerId },
+            data: {
+              slackMemberId: mapping.slackMemberId,
+              slackMappingVerifiedAt: new Date(),
+              slackMappingVerifiedBy: account.id,
+            },
+          });
+        }
+        await transaction.auditEvent.create({
+          data: {
+            accountId: account.id,
+            eventType: 'slack.mapping_confirmed',
+            entityType: 'Cohort',
+            entityId: cohortId,
+            payload: { mappingCount: mappings.length },
+          },
+        });
+      });
+      return { success: true, message: `${mappings.length} Slack mappings confirmed` };
+    } catch (cause) {
+      return fail(409, {
+        message: cause instanceof Error ? cause.message : 'Slack mapping confirmation failed',
+      });
+    }
+  },
   mode: async ({ request, locals }) => {
     const account = staffAccount(locals);
     if (!isAdmin(account)) return fail(403, { message: 'Admin access required' });
