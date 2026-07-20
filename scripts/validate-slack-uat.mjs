@@ -3,7 +3,6 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 
 import { readRequiredSecret } from '../src/lib/server/config/secrets.ts';
-import { SlackLearnerMessages } from '../src/lib/server/integrations/http-providers.ts';
 
 const sendCanary = process.argv.includes('--send-staff-canary');
 const token = readRequiredSecret('SLACK_BOT_TOKEN');
@@ -74,15 +73,13 @@ writeFileSync(
   { mode: 0o600, flag: 'wx' },
 );
 
-const result = await new SlackLearnerMessages(token).send({
-  idempotencyKey: 'gate-5:staff-channel:single-canary',
-  recipientExternalId: channelId,
-  templateKey: 'gate-5-staff-canary',
-  templateVersion: 1,
-  approvedFields: {},
-  renderedContent:
-    'LiftOff UAT Gate 5 staff-only canary. No learner data is included. Please add a reaction and one thread reply for validation.',
+const result = await slackApi('chat.postMessage', {
+  channel: channelId,
+  text: 'LiftOff UAT Gate 5 staff-only canary. No learner data is included. Please add a reaction and one thread reply for validation.',
 });
+if (typeof result.ts !== 'string')
+  throw new Error('Slack UAT canary returned no message reference');
+const acceptedAt = new Date().toISOString();
 
 writeFileSync(
   receiptPath,
@@ -90,8 +87,8 @@ writeFileSync(
     {
       provider: 'slack',
       channelId,
-      providerMessageId: result.providerMessageId,
-      acceptedAt: result.acceptedAt,
+      providerMessageId: result.ts,
+      acceptedAt,
     },
     null,
     2,
