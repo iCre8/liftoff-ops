@@ -1,5 +1,9 @@
 import 'dotenv/config';
-import { defineConfig, env } from 'prisma/config';
+import { defineConfig } from 'prisma/config';
+import { readOptionalSecret, readRequiredSecret } from './src/lib/server/config/secrets';
+
+const schemaConnectionString =
+  readOptionalSecret('DIRECT_DATABASE_URL') ?? readRequiredSecret('DATABASE_URL');
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -8,6 +12,6 @@ export default defineConfig({
   },
   datasource: {
     // Runtime uses the pooled URL; schema operations prefer Neon's direct URL.
-    url: process.env.DIRECT_DATABASE_URL?.trim() || env('DATABASE_URL'),
+    url: schemaConnectionString,
   },
 });

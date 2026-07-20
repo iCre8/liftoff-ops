@@ -3,9 +3,11 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 import { createGoogleSheetsApiFromAdc } from '../src/lib/server/integrations/google-sheets/google-api-gateway.ts';
-import { parseAttendanceSheetMapping } from '../src/lib/server/integrations/google-sheets/mapping.ts';
-
-const EXPECTED_SESSION_GROUP_COUNT = 42;
+import {
+  deriveContiguousLearnerRange,
+  parseCompleteDetectedSessionGroups,
+  parseAttendanceSheetMapping,
+} from '../src/lib/server/integrations/google-sheets/mapping.ts';
 
 function requiredEnvironment(name) {
   const value = process.env[name]?.trim();
@@ -53,26 +55,10 @@ try {
   if (sheet.worksheetId !== worksheetId || !sheet.attendanceCandidate) {
     throw new Error('The private inventory does not match the configured attendance tab');
   }
-  const groups = draft.detectedSessionGroups;
-  if (
-    !Array.isArray(groups) ||
-    groups.length !== EXPECTED_SESSION_GROUP_COUNT ||
-    groups.length !== draft.detectedCheckPairs?.length
-  ) {
-    throw new Error('The private inventory does not contain 42 complete session groups');
-  }
-  const usedColumns = new Set();
-  for (const group of groups) {
-    for (const column of [
-      group.checkInColumn,
-      group.checkOutColumn,
-      group.excusedColumn,
-      group.outcomeColumn,
-    ]) {
-      if (usedColumns.has(column)) throw new Error('Session-group columns overlap');
-      usedColumns.add(column);
-    }
-  }
+  const groups = parseCompleteDetectedSessionGroups(
+    draft.detectedSessionGroups,
+    draft.detectedCheckPairs?.length ?? 0,
+  );
 
   const api = await createGoogleSheetsApiFromAdc('read-only');
   const range = `${quoteWorksheet(sheet.worksheetTitle)}!${draft.learnerExternalIdColumn}${draft.dataStartRow}:${draft.learnerExternalIdColumn}${sheet.rowCount}`;
@@ -84,19 +70,14 @@ try {
     dateTimeRenderOption: 'FORMATTED_STRING',
   });
   const identifiers = response.data.values?.[0] ?? [];
-  const populated = identifiers.map((value) => String(value ?? '').trim().length > 0);
-  const lastPopulatedIndex = populated.lastIndexOf(true);
-  if (lastPopulatedIndex < 0 || !populated.slice(0, lastPopulatedIndex + 1).every(Boolean)) {
-    throw new Error('Stable learner identifier rows are empty or non-contiguous');
-  }
-  if (populated.slice(lastPopulatedIndex + 1).some(Boolean)) {
-    throw new Error('Stable learner identifier rows are not bounded contiguously');
-  }
+  const learnerRange = deriveContiguousLearnerRange({
+    dataStartRow: draft.dataStartRow,
+    learnerExternalIdColumn: draft.learnerExternalIdColumn,
+    identifiers,
+  });
 
   const mapping = parseAttendanceSheetMapping({
-    dataStartRow: draft.dataStartRow,
-    dataEndRow: draft.dataStartRow + lastPopulatedIndex,
-    learnerExternalIdColumn: draft.learnerExternalIdColumn,
+    ...learnerRange,
     sessions: Object.fromEntries(
       groups.map((group, index) => [
         `session-${String(index + 1).padStart(3, '0')}`,
@@ -120,7 +101,7 @@ try {
   chmodSync(outputPath, 0o600);
 
   console.log(
-    `Private mapping finalized: ${groups.length} session groups, ${lastPopulatedIndex + 1} contiguous learner rows, raw learner values logged: no.`,
+    `Private mapping finalized: ${groups.length} session groups, ${learnerRange.dataEndRow - learnerRange.dataStartRow + 1} contiguous learner rows, raw learner values logged: no.`,
   );
   console.log(`Private mapping written with mode 0600: ${outputPath}`);
 } catch {

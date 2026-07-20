@@ -194,8 +194,9 @@ function mappingDraft(
   if (candidates.length !== 1) return null;
 
   const candidate = candidates[0];
-  const learnerId = candidate.recognizedHeaders.find((header) => header.kind === 'learner_id');
-  if (!learnerId) return null;
+  const learnerEmails = candidate.recognizedHeaders.filter((header) => header.kind === 'email');
+  if (learnerEmails.length !== 1) return null;
+  const learnerEmail = learnerEmails[0];
   const excused = candidate.recognizedHeaders.find((header) => header.kind === 'excused');
   const outcome = candidate.recognizedHeaders.find((header) => header.kind === 'incident_outcome');
 
@@ -205,9 +206,9 @@ function mappingDraft(
   requiresReview.push('Verify formulas and operationally protected columns before any write');
 
   return {
-    dataStartRow: learnerId.row + 1,
+    dataStartRow: learnerEmail.row + 1,
     dataEndRow: null,
-    learnerExternalIdColumn: learnerId.column,
+    learnerExternalIdColumn: learnerEmail.column,
     detectedCheckPairs: candidate.detectedCheckPairs,
     detectedSessionGroups: candidate.detectedSessionGroups,
     excusedColumn: excused?.column ?? null,

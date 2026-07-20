@@ -28,7 +28,11 @@
     "verify": "pnpm format:check && pnpm check && pnpm test && pnpm build",
     "google:sheets:validate-identifiers": "node --env-file-if-exists=.env scripts/validate-google-sheets-identifiers.mjs",
     "google:sheets:build-session-catalog": "node --env-file-if-exists=.env scripts/build-google-sheets-session-catalog.mjs",
+    "slack:validate-uat": "node --env-file-if-exists=.env scripts/validate-slack-uat.mjs",
+    "resend:validate-uat": "node --env-file-if-exists=.env scripts/validate-resend-uat.mjs",
     "dev:seed": "node scripts/seed-module-2-local.mjs",
+    "uat:provision-initial-admin": "node scripts/provision-initial-admin.mjs",
+    "uat:repair-roster": "node --env-file-if-exists=.env scripts/repair-uat-roster.mjs",
     "worker": "node worker-build/worker.js"
   },
   "dependencies": {
@@ -53,6 +57,7 @@
     "svelte": "5.56.5",
     "svelte-check": "4.7.2",
     "typescript": "6.0.3",
+    "vercel": "56.3.2",
     "vite": "8.1.4",
     "vitest": "4.1.10"
   }

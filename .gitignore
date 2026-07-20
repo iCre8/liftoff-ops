@@ -20,3 +20,5 @@ result-*
 
 .DS_Store
 *.log
+.vercel
+.env*

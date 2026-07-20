@@ -6,6 +6,7 @@ const DELIVERY_STATUS: Readonly<Record<string, 'ACCEPTED' | 'DELIVERED' | 'FAILE
   'email.bounced': 'FAILED',
   'email.failed': 'FAILED',
 };
+const DELIVERY_EVENT_TYPES = Object.keys(DELIVERY_STATUS);
 
 export async function ingestProviderEvent(
   database: PrismaClient,
@@ -46,9 +47,23 @@ export async function ingestProviderEvent(
     });
     if (created.count === 0) return { duplicate: true, outreachUpdated: false };
     const status = input.provider === 'resend' ? DELIVERY_STATUS[boundedEventType] : undefined;
+    let applyResendStatus = Boolean(status);
+    if (outreach && status) {
+      const latest = await transaction.providerEvent.findFirst({
+        where: {
+          outreachAttemptId: outreach.id,
+          provider: 'resend',
+          eventType: { in: DELIVERY_EVENT_TYPES },
+        },
+        orderBy: [{ occurredAt: 'desc' }, { receivedAt: 'desc' }],
+        select: { providerEventId: true },
+      });
+      applyResendStatus = latest?.providerEventId === input.providerEventId;
+    }
     const slackAcknowledged =
       input.provider === 'slack' && ['reaction_added', 'message'].includes(boundedEventType);
-    if (outreach && (status || slackAcknowledged)) {
+    const providerStateChanged = Boolean((status && applyResendStatus) || slackAcknowledged);
+    if (outreach && providerStateChanged) {
       await transaction.outreachAttempt.update({
         where: { id: outreach.id },
         data: {
@@ -61,7 +76,7 @@ export async function ingestProviderEvent(
     }
     return {
       duplicate: false,
-      outreachUpdated: Boolean(outreach && (status || slackAcknowledged)),
+      outreachUpdated: Boolean(outreach && providerStateChanged),
     };
   });
 }

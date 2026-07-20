@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 
 import { readRequiredSecret } from '$lib/server/config/secrets';
 import { getDatabase } from '$lib/server/db';
+import { slackAcknowledgmentMessageId } from '$lib/server/integrations/slack-events';
 import { verifySlackSignature } from '$lib/server/integrations/webhook-signatures';
 import { ingestProviderEvent } from '$lib/server/services/provider-events';
 
@@ -38,21 +39,17 @@ export const POST = async ({ request }) => {
       : {};
   const eventType = typeof event.type === 'string' ? event.type : 'unknown';
   const occurredAt = new Date(Number(payload.event_time ?? 0) * 1000);
-  const actor = typeof event.user === 'string' ? event.user : '';
   const allowedActors = new Set(
     readRequiredSecret('SLACK_STAFF_MEMBER_IDS')
       .split(/[\s,]+/)
       .map((value) => value.trim())
       .filter(Boolean),
   );
-  const item =
-    event.item && typeof event.item === 'object' ? (event.item as Record<string, unknown>) : {};
-  const providerMessageId =
-    allowedActors.has(actor) && typeof item.ts === 'string'
-      ? item.ts
-      : allowedActors.has(actor) && typeof event.thread_ts === 'string'
-        ? event.thread_ts
-        : undefined;
+  const providerMessageId = slackAcknowledgmentMessageId(
+    event,
+    allowedActors,
+    readRequiredSecret('SLACK_STAFF_CHANNEL_ID'),
+  );
   await ingestProviderEvent(getDatabase(), {
     provider: 'slack',
     providerEventId: payload.event_id,

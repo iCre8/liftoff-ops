@@ -143,6 +143,13 @@ The containerized application is available at `http://127.0.0.1:3000`, with its 
 
 Secrets must stay outside the worktree. Never commit them, place them in `.env.example`, pass them as Docker build arguments, or print them in logs.
 
+For a guided introduction, complete the
+[seven local external-secret management lessons](project-notes/local-secret-management-lessons.md).
+Continue with the
+[Vercel Preview/UAT and Production lessons](project-notes/vercel-environment-lessons.md)
+and the
+[Neon Postgres UAT and Production lessons](project-notes/neon-environment-lessons.md).
+
 ## Validation commands
 
 | Command                                      | Purpose                                                     |
