@@ -61,10 +61,28 @@ export class ResendLearnerMessages implements LearnerMessagePort {
     private readonly sender: string,
     private readonly http: FetchPort = fetch,
     private readonly replyTo?: string,
+    private readonly preferenceUrl?: string,
   ) {}
 
   async send(request: MessageRequest): Promise<MessageResult> {
     validateRequest(request);
+    if (!this.preferenceUrl) throw new Error('A communication-preferences URL is required');
+    const preferenceUrl = new URL(this.preferenceUrl);
+    if (
+      preferenceUrl.protocol !== 'https:' ||
+      preferenceUrl.username ||
+      preferenceUrl.password ||
+      preferenceUrl.search ||
+      preferenceUrl.hash
+    ) {
+      throw new Error('The communication-preferences URL must be a stable HTTPS route');
+    }
+    const renderedContent =
+      request.renderedContent +
+      '\n\nManage attendance communication preferences: ' +
+      preferenceUrl.toString();
+    if (renderedContent.length > 4000)
+      throw new Error('Approved content exceeds the provider limit');
     const response = await this.http('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -76,7 +94,7 @@ export class ResendLearnerMessages implements LearnerMessagePort {
         from: this.sender,
         to: [request.recipientExternalId],
         subject: request.subject ?? 'LiftOff program check-in',
-        text: request.renderedContent,
+        text: renderedContent,
         ...(this.replyTo ? { reply_to: this.replyTo } : {}),
       }),
     });

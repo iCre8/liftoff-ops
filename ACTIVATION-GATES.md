@@ -50,6 +50,10 @@ The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_
 - 2026-07-20: Replaced the empty sanitized UAT roster with the approved 14-row D10:D23 company-email roster in one fail-closed transaction. The cohort is named Cohort 3, remains disabled, preserves eight template drafts, and contains no development session. Count-only verification found 14 Neon learners, 14 Slack directory matches, zero prewritten Slack mappings, and one audit event.
 - 2026-07-20: Cleared Gate 5. The protected Slack webhook, exact 14-learner mapping, one staff-only canary, real reaction/thread events, duplicate suppression, and tampered/stale rejection all passed with automation disabled and zero learner outreach.
 - 2026-07-20: Gate 6 UAT configuration reached the hosted-deployment boundary. Corrected the owner-only webhook-secret filename, tightened all four Resend files to mode `0600`, verified public DKIM/SPF/return-path DNS for `uat-mail.liftofflearning.tech`, passed the no-contact two-staff allowlist preflight, and added only the Sensitive branch-scoped webhook secret to Vercel Preview `uat`. No email was sent.
+- 2026-07-20: PR #11 was initially merged to `main`; corrective PR #12 merged the same reviewed Gate 6 artifact into `uat` and triggered the protected deployment. The fresh stable UAT alias passed health checks. Learner-free signed Resend proofs returned `200` for the original and duplicate, `401` for tampered and stale requests, and stored exactly one unlinked provider event with zero outreach attempts while automation remained disabled.
+- 2026-07-20: Cleared Gate 6. One authorized staff-only Resend canary produced exactly one received message, reused the same provider message reference on the idempotent retry, and generated genuine signed `email.sent` and `email.delivered` callbacks. SPF, DKIM, and DMARC all passed; the monitored corporate Reply-To was correct; automation remained `DISABLED`; and no learner outreach was created. The message landed in spam, so inbox placement remains a production deliverability risk to recheck before activation.
+
+- 2026-07-20: Cleared Gate 7. The administrator approved the fresh notice, publication locations, accommodation-access matrix, count-only export auditing, self-service per-channel suppression, twelve-category three-year review, policy-hold procedure, and vendor/security ownership. Local implementation and 100 sanitized tests passed; the migration was subsequently applied to verified dev/UAT, while UAT deployment and active-path proof remain Gate 10 prerequisites.
 
 ## Gate status checklist
 
@@ -58,8 +62,8 @@ The Jul 24 pilot uses the **sanitized copied workbook and seeded cohort in `dry_
 - [x] Gate 3 — Neon production database branch and migration authorization
 - [x] Gate 4 — Hosting: Vercel web app + worker runtime, GitHub environments
 - [x] Gate 5 — Slack non-production validation
-- [ ] Gate 6 — Resend non-production validation
-- [ ] Gate 7 — Privacy and compliance review recorded
+- [x] Gate 6 — Resend non-production validation
+- [x] Gate 7 — Privacy and compliance review recorded
 - [ ] Gate 8 — Dry-run evidence: five complete days + formal staff review
 - [ ] Gate 9 — Live Sheet-write canary on the production workbook
 - [ ] Gate 10 — Written go/no-go activation authorization
@@ -212,7 +216,7 @@ Identity validation derives its boundary from the owner-only inventory file and 
 
 ---
 
-## Gate 6 — Resend non-production validation [IN PROGRESS — UAT CONFIG READY]
+## Gate 6 — Resend non-production validation [CLEARED]
 
 **Why this gate exists.** Escalation and team email goes through Resend with the same fail-closed posture: no `RESEND_API_KEY` / `RESEND_WEBHOOK_SECRET`, no email. Webhooks are Svix-signed and replay-protected; delivery outcomes are stored under idempotency keys so a retry can never double-send.
 
@@ -225,15 +229,15 @@ Identity validation derives its boundary from the owner-only inventory file and 
 5. Run `pnpm resend:validate-uat` for a no-contact local configuration preflight. After explicit authorization, run `pnpm resend:validate-uat -- --send-staff-canary` once. It writes an owner-only receipt before provider contact, sends one learner-free staff message, and repeats the identical request with the same idempotency key to prove that Resend returns the same message reference instead of sending twice.
 6. Confirm DKIM-aligned delivery in the staff inbox, signed `email.sent` and `email.delivered` events in UAT Postgres, replay one event to prove deduplication, and verify that malformed/stale signatures fail closed. Keep Cohort 3 automation `DISABLED` and verify zero learner outreach attempts.
 
-**Current evidence.** Local safeguards are complete: 22 test files and 92 sanitized tests pass, Svelte/TypeScript reports zero diagnostics, web and worker production builds pass, and Compose renders successfully. The validator enforces the exact UAT sending subdomain, corporate staff-only Reply-To/canary allowlists, a pre-contact receipt, and provider idempotency. The application adapter emits Reply-To, while delivery ingestion prevents older out-of-order events from regressing state. All four nonempty Resend files are mode `0600`; the UAT DKIM, SPF, and return-path records resolve publicly; and the no-contact preflight passed with two staff allowlist entries. Only `RESEND_WEBHOOK_SECRET` is a Sensitive Vercel Preview value restricted to branch `uat`; the sending key and addresses remain local. A gated redeployment, hosted signed-webhook proof, and the separately approved staff canary remain pending. No email has been sent. Gate status confidence: **70%**.
+**Current evidence.** Gate 6 cleared on 2026-07-20. Local safeguards are complete: 22 test files and 92 sanitized tests pass, Svelte/TypeScript reports zero diagnostics, web and worker production builds pass, and Compose renders successfully. The validator enforces the exact UAT sending subdomain, corporate staff-only Reply-To/canary allowlists, a pre-contact receipt, and provider idempotency. The application adapter emits Reply-To, while delivery ingestion prevents older out-of-order events from regressing state. All four nonempty Resend files are mode `0600`; the UAT DKIM, SPF, and return-path records resolve publicly; and the no-contact preflight passed with two staff allowlist entries. Only `RESEND_WEBHOOK_SECRET` is a Sensitive Vercel Preview value restricted to branch `uat`; the sending key and addresses remain local. Corrective PR #12 placed the reviewed Gate 6 artifact on `uat`; the protected deployment is Ready and healthy. Learner-free signed webhook proofs returned HTTP `200` twice for one event ID but stored exactly one row; tampered and stale requests returned `401`. The authorized real canary then produced exactly one staff email, reused the original provider message reference on retry, and generated genuine signed `email.sent` and `email.delivered` callbacks without creating an outreach attempt. The received message had the correct monitored Reply-To and passed SPF, DKIM, and DMARC. Automation remained `DISABLED` and no learner message was sent. The message landed in spam; this is a production deliverability risk, not a Gate 6 authentication failure, and must be retested before learner activation. Gate status confidence: **100%**.
 
-**Verification.** DKIM-aligned delivery from the exact UAT subdomain to a staff inbox, monitored corporate Reply-To, signed delivery events recorded without out-of-order status regression, duplicate events ignored, and environment separation confirmed. The UAT key and webhook secret must not appear in production configuration.
+**Verification.** Authenticated delivery from the exact UAT subdomain to a staff inbox, SPF/DKIM/DMARC pass, monitored corporate Reply-To, signed delivery events recorded without out-of-order status regression, duplicate sends and events suppressed, and environment separation confirmed. The UAT key and webhook secret must not appear in production configuration. Before production activation, repeat a staff-only deliverability canary and investigate or remediate spam placement if it persists.
 
 **Unblocks:** email half of Milestone 4 activation evidence. Not needed for the Jul 24 pilot.
 
 ---
 
-## Gate 7 — Privacy and compliance review [PENDING]
+## Gate 7 — Privacy and compliance review [CLEARED — REVIEW RECORDED]
 
 **Why this gate exists.** The design decisions defer, but do not waive, confirmation of learner consent, contact-hour boundaries, privacy duties, retention, and deletion obligations. Automation that messages learners about attendance touches consent and expectations directly; the review must be recorded before real learner messages, not after.
 
@@ -244,6 +248,8 @@ Identity validation derives its boundary from the owner-only inventory file and 
 3. Confirm the retention posture: cohort-end archival is reversible, permanent deletion stays disabled, and the three-year administrator review reminder satisfies policy.
 4. Confirm CSV export exclusions (form responses, support text, accommodation details, message bodies) satisfy the data-minimization intent.
 5. Record the review outcome and reviewer in `project-notes/project_config.md` using the entry template.
+
+**Cleared 2026-07-20.** The administrator confirmed that Cohort 3 learners are adults, reported no applicable Department of Education funding or covered-institution relationship, and approved the contact window, fresh notice, three publication locations, current accommodation-access matrix, audit-on-every-CSV rule, authenticated per-channel opt-out, twelve-category three-year review, administrator holds, and vendor/security response ownership. Durable communication preferences, transactional both-channel changes, zero-provider-call suppression, dry-run channel suppression, a required stable email preference link, count-only CSV export auditing, category-wide retention-review scheduling, and audited holds are implemented locally. Prisma generation/validation, zero Svelte/TypeScript diagnostics, and 25 test files with 100 sanitized tests passed. The single migration was applied to the verified dev/UAT direct target and an independent status check found all four migrations current. The artifact remains undeployed; Gate 10 must verify the deployed exact pre-send enforcement path and notice publication before outreach activation. No real message, Sheet write, learner contact, or provider configuration change occurred. Gate status confidence: **96%**.
 
 **Unblocks:** Gate 10. Independent of the pilot; schedule it during August.
 

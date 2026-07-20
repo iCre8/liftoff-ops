@@ -35,6 +35,7 @@ describe('HTTP provider adapters', () => {
       'sender@example.test',
       accepted as typeof fetch,
       'staff@example.test',
+      'https://uat.example.test/learner/communication-preferences',
     ).send(request);
     expect((accepted.mock.calls[0][1]?.headers as Record<string, string>)['idempotency-key']).toBe(
       request.idempotencyKey,
@@ -42,14 +43,38 @@ describe('HTTP provider adapters', () => {
     expect(JSON.parse(String(accepted.mock.calls[0][1]?.body))).toMatchObject({
       reply_to: 'staff@example.test',
     });
+    expect(JSON.parse(String(accepted.mock.calls[0][1]?.body)).text).toContain(
+      'https://uat.example.test/learner/communication-preferences',
+    );
     const rejected = vi.fn<typeof fetch>(
       async (url: string | URL | Request, init?: RequestInit) =>
         new Response('{}', { status: 422 }),
     );
     await expect(
-      new ResendLearnerMessages('secret-key', 'sender@example.test', rejected as typeof fetch).send(
-        request,
-      ),
+      new ResendLearnerMessages(
+        'secret-key',
+        'sender@example.test',
+        rejected as typeof fetch,
+        undefined,
+        'https://uat.example.test/learner/communication-preferences',
+      ).send(request),
     ).rejects.toMatchObject({ permanent: true });
+  });
+
+  it('fails closed when the learner preference link is absent or contains identifiers', async () => {
+    const http = vi.fn<typeof fetch>();
+    await expect(
+      new ResendLearnerMessages('secret-key', 'sender@example.test', http).send(request),
+    ).rejects.toThrow(/preferences URL is required/);
+    await expect(
+      new ResendLearnerMessages(
+        'secret-key',
+        'sender@example.test',
+        http,
+        undefined,
+        'https://uat.example.test/learner/communication-preferences?learner=reference',
+      ).send(request),
+    ).rejects.toThrow(/stable HTTPS route/);
+    expect(http).not.toHaveBeenCalled();
   });
 });

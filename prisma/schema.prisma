@@ -118,6 +118,35 @@ enum OutreachStatus {
   FAILED
   CLAIMED
   CLOSED
+  SUPPRESSED
+}
+
+enum CommunicationPreferenceSource {
+  LEARNER_FORM
+  ADMIN_RECORDED_REQUEST
+  LEARNER_RESUME
+  ADMIN_CORRECTION
+}
+
+enum RetentionDataCategory {
+  ACCOUNTS_AND_SESSIONS
+  LEARNER_IDENTIFIERS_AND_MAPPINGS
+  SUBMISSIONS_AND_REVISIONS
+  ATTENDANCE_RECORDS
+  INCIDENTS_AND_OUTREACH
+  SUPPORT_ITEMS
+  ACCOMMODATIONS_AND_PAUSES
+  SYNCHRONIZATION_HISTORY
+  AUDIT_HISTORY
+  PROVIDER_METADATA
+  REPORTING_AND_BASELINES
+  AUTOMATION_JOBS
+}
+
+enum RetentionReviewStatus {
+  PENDING
+  REVIEWED_RETAIN
+  REVIEWED_DELETE
 }
 
 enum AccommodationStatus {
@@ -150,21 +179,23 @@ model Cohort {
   blackoutDates        BlackoutDate[]
   dryRunDays           DryRunDay[]
   baselineMeasurements BaselineMeasurement[]
+  retentionReviews     DataRetentionReview[]
 }
 
 model Account {
-  id             String           @id @default(cuid())
-  email          String           @unique
-  googleSubject  String?          @unique
-  displayName    String?
-  status         AccountStatus    @default(ACTIVE)
-  lastSignedInAt DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  roles          RoleAssignment[]
-  authSessions   AuthSession[]
-  learner        Learner?
-  auditEvents    AuditEvent[]
+  id                String                           @id @default(cuid())
+  email             String                           @unique
+  googleSubject     String?                          @unique
+  displayName       String?
+  status            AccountStatus                    @default(ACTIVE)
+  lastSignedInAt    DateTime?
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+  roles             RoleAssignment[]
+  authSessions      AuthSession[]
+  learner           Learner?
+  auditEvents       AuditEvent[]
+  preferenceChanges LearnerCommunicationPreference[] @relation("CommunicationPreferenceActor")
 }
 
 model RoleAssignment {
@@ -193,28 +224,47 @@ model AuthSession {
 }
 
 model Learner {
-  id                     String             @id @default(cuid())
-  accountId              String?            @unique
-  cohortId               String
-  externalId             String
-  preferredChannel       OutreachChannel?
-  slackMemberId          String?            @unique
-  slackMappingVerifiedAt DateTime?
-  slackMappingVerifiedBy String?
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-  account                Account?           @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  cohort                 Cohort             @relation(fields: [cohortId], references: [id], onDelete: Restrict)
-  submissions            Submission[]
-  attendanceRecords      AttendanceRecord[]
-  incidents              Incident[]
-  accommodations         Accommodation[]
-  individualPauses       AutomationPause[]
-  supportItems           SupportItem[]
-  automationJobs         AutomationJob[]
+  id                       String                           @id @default(cuid())
+  accountId                String?                          @unique
+  cohortId                 String
+  externalId               String
+  preferredChannel         OutreachChannel?
+  slackMemberId            String?                          @unique
+  slackMappingVerifiedAt   DateTime?
+  slackMappingVerifiedBy   String?
+  createdAt                DateTime                         @default(now())
+  updatedAt                DateTime                         @updatedAt
+  account                  Account?                         @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  cohort                   Cohort                           @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  submissions              Submission[]
+  attendanceRecords        AttendanceRecord[]
+  incidents                Incident[]
+  accommodations           Accommodation[]
+  individualPauses         AutomationPause[]
+  supportItems             SupportItem[]
+  automationJobs           AutomationJob[]
+  communicationPreferences LearnerCommunicationPreference[]
 
   @@unique([cohortId, externalId])
   @@index([cohortId])
+}
+
+model LearnerCommunicationPreference {
+  id                 String                        @id @default(cuid())
+  learnerId          String
+  channel            OutreachChannel
+  enabled            Boolean                       @default(true)
+  source             CommunicationPreferenceSource
+  effectiveAt        DateTime                      @default(now())
+  changedByAccountId String
+  adminReason        String?
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+  learner            Learner                       @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  changedBy          Account                       @relation("CommunicationPreferenceActor", fields: [changedByAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([learnerId, channel])
+  @@index([changedByAccountId, effectiveAt])
 }
 
 model ProgramSession {
@@ -580,4 +630,28 @@ model ArchivedIncident {
   deletionHold     Boolean  @default(false)
 
   @@index([cohortId, deletionReviewAt])
+}
+
+model DataRetentionReview {
+  id             String                @id @default(cuid())
+  cohortId       String
+  category       RetentionDataCategory
+  dueAt          DateTime
+  status         RetentionReviewStatus @default(PENDING)
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  decisionNote   String?
+  holdPlacedAt   DateTime?
+  holdPlacedBy   String?
+  holdReason     String?
+  holdReviewAt   DateTime?
+  holdReleasedAt DateTime?
+  holdReleasedBy String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  cohort         Cohort                @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+
+  @@unique([cohortId, category])
+  @@index([status, dueAt])
+  @@index([cohortId, holdReleasedAt, holdReviewAt])
 }

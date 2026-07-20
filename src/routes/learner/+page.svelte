@@ -34,6 +34,11 @@
     <a href="/">Switch workspace</a>
   </header>
 
+  <nav class="learner-policy-links" aria-label="Learner privacy and communication controls">
+    <a href="/learner/communication-preferences">Communication preferences</a>
+    <a href="/learner/privacy">Attendance privacy notice</a>
+  </nav>
+
   {#if form?.message}<p class:success={form.success} class="notice">{form.message}</p>{/if}
 
   {#if !data.session}
@@ -431,6 +436,16 @@
     background: hsl(140, 52%, 94%);
     color: hsl(150, 48%, 16%);
     border-color: hsl(140, 50%, 88%);
+  }
+
+  .learner-policy-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .learner-policy-links a {
+    font-weight: 750;
   }
 
   .history {

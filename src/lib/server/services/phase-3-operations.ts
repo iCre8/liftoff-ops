@@ -1,8 +1,15 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
+import { ensureRetentionReviews, threeCalendarYearsAfter } from './retention-reviews';
+
 export function csvCell(value: unknown): string {
   const text = value === null || value === undefined ? '' : String(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+export function csvDataRowCount(csv: string): number {
+  if (!csv) return 0;
+  return Math.max(0, csv.split('\r\n').length - 1);
 }
 
 export async function buildCohortReportCsv(
@@ -89,7 +96,7 @@ export async function archiveCohortIncidents(
           cohortId: input.cohortId,
           snapshot,
           archivedAt: now,
-          deletionReviewAt: new Date(now.getTime() + 3 * 365 * 24 * 60 * 60_000),
+          deletionReviewAt: threeCalendarYearsAfter(now),
         },
         update: {},
       });
@@ -106,13 +113,14 @@ export async function archiveCohortIncidents(
       await transaction.incident.deleteMany({ where: { id: { in: incidentIds } } });
     }
     await transaction.cohort.update({ where: { id: input.cohortId }, data: { archivedAt: now } });
+    const retentionReviewCount = await ensureRetentionReviews(transaction, input.cohortId, now);
     await transaction.auditEvent.create({
       data: {
         accountId: input.actorId,
         eventType: 'cohort.incidents_archived',
         entityType: 'Cohort',
         entityId: input.cohortId,
-        payload: { incidentCount: incidents.length, reversible: true },
+        payload: { incidentCount: incidents.length, retentionReviewCount, reversible: true },
       },
     });
     return incidents.length;
