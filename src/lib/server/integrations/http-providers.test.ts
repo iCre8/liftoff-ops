@@ -34,10 +34,14 @@ describe('HTTP provider adapters', () => {
       'secret-key',
       'sender@example.test',
       accepted as typeof fetch,
+      'staff@example.test',
     ).send(request);
     expect((accepted.mock.calls[0][1]?.headers as Record<string, string>)['idempotency-key']).toBe(
       request.idempotencyKey,
     );
+    expect(JSON.parse(String(accepted.mock.calls[0][1]?.body))).toMatchObject({
+      reply_to: 'staff@example.test',
+    });
     const rejected = vi.fn<typeof fetch>(
       async (url: string | URL | Request, init?: RequestInit) =>
         new Response('{}', { status: 422 }),
